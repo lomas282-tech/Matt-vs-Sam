@@ -26,8 +26,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .header-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;letter-spacing:-0.5px;}
 .header-title .mc{color:var(--matt);}.header-title .sc{color:var(--sam);}
 .sync-btn{width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all 0.2s;}
-.sync-btn:active{transform:scale(0.9);background:var(--accent);}
-.sync-btn.spinning{animation:spin 1s linear infinite;}
+.sync-btn:active{transform:scale(0.9);}.sync-btn.spinning{animation:spin 1s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .scroll-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:max(80px,calc(80px + env(safe-area-inset-bottom)));}
 .period-toggle{display:flex;gap:6px;padding:14px 20px 0;}
@@ -37,30 +36,52 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .scoreboard-label{font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
 .vs-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;}
 .player-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px 12px;text-align:center;transition:border-color 0.3s;}
-.player-card.winning{border-color:var(--accent);}
-.player-card.losing{border-color:var(--accent2);}
+.player-card.winning{border-color:var(--accent);}.player-card.losing{border-color:var(--accent2);}
 .player-name{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
 #mattCard .player-name{color:var(--matt);}#samCard .player-name{color:var(--sam);}
 .player-wins{font-size:36px;font-weight:600;line-height:1;margin:6px 0 2px;}
-.player-record{font-size:12px;color:var(--muted);}
-.player-net{font-size:13px;font-weight:600;margin-top:6px;}
+.player-record{font-size:12px;color:var(--muted);}.player-net{font-size:13px;font-weight:600;margin-top:6px;}
 .vs-divider{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--muted);text-align:center;}
-.balance-banner{margin:16px 20px 0;padding:14px 16px;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;font-size:13px;}
+/* Current period card */
+.period-card{margin:14px 20px 0;padding:14px 16px;border-radius:var(--radius);background:var(--card);border:1px solid var(--border);}
+.period-card-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.period-row{display:flex;justify-content:space-between;align-items:center;}
+.period-player{text-align:center;flex:1;}
+.period-player-name{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.period-player-name.matt{color:var(--matt);}.period-player-name.sam{color:var(--sam);}
+.period-wl{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;line-height:1;margin-top:4px;}
+.period-net{font-size:12px;font-weight:600;margin-top:2px;}
+.period-divider{font-size:12px;color:var(--muted);padding:0 8px;text-align:center;}
+.period-balance{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;}
+.period-balance-label{color:var(--muted);}
+.period-balance-val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;}
+/* Balance banner */
+.balance-banner{margin:14px 20px 0;padding:14px 16px;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;font-size:13px;}
 .balance-banner.owed{background:rgba(255,77,109,0.12);border:1px solid rgba(255,77,109,0.3);}
 .balance-banner.even{background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);}
 .balance-label{color:var(--muted);}
 .balance-amount{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;}
-.balance-banner.owed .balance-amount{color:var(--accent2);}
-.balance-banner.even .balance-amount{color:var(--accent);}
+.balance-banner.owed .balance-amount{color:var(--accent2);}.balance-banner.even .balance-amount{color:var(--accent);}
 .payout-pill{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--accent3);color:#000;letter-spacing:0.5px;}
-.section-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 10px;}
+/* Live scores */
+.live-section{margin:14px 0 0;}
+.section-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;}
 .section-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
 .section-action{font-size:12px;color:var(--accent);font-weight:600;cursor:pointer;}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);display:inline-block;margin-right:6px;animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.2}}
+.live-list{padding:0 20px;display:flex;flex-direction:column;gap:8px;}
+.live-card{background:var(--card);border:1px solid rgba(255,77,109,0.3);border-radius:var(--radius);padding:12px 14px;}
+.live-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.live-name{font-size:13px;font-weight:600;}
+.live-badge{background:rgba(255,77,109,0.2);color:var(--accent2);border:1px solid rgba(255,77,109,0.4);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1px;animation:pulse 1.5s infinite;}
+.live-score{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;text-align:center;margin:4px 0 2px;letter-spacing:2px;}
+.live-clock{font-size:12px;color:var(--muted);text-align:center;}
+/* Game cards */
 .games-list{padding:0 20px;display:flex;flex-direction:column;gap:8px;}
 .game-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;}
 .game-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);transition:background 0.2s;}
-.game-card.pending::before{background:var(--accent3);}
-.game-card.complete::before{background:var(--accent);}
+.game-card.pending::before{background:var(--accent3);}.game-card.complete::before{background:var(--accent);}
 .game-card:active{transform:scale(0.98);}
 .game-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
 .game-name{font-weight:600;font-size:14px;flex:1;margin-right:8px;}
@@ -82,14 +103,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .winner-chip.matt{background:rgba(0,229,160,0.15);color:var(--matt);}
 .winner-chip.sam{background:rgba(77,159,255,0.15);color:var(--sam);}
 .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
-.empty-icon{font-size:40px;margin-bottom:12px;}
-.empty-text{font-size:14px;}
+.empty-icon{font-size:40px;margin-bottom:12px;}.empty-text{font-size:14px;}
 .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px;}
+/* Bottom nav — 5 tabs */
 .bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(10,10,15,0.95);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:100;}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 6px;cursor:pointer;transition:color 0.2s;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;gap:4px;-webkit-user-select:none;user-select:none;}
-.nav-item.active{color:var(--accent);}
-.nav-icon{font-size:20px;line-height:1;}
+.nav-item.active{color:var(--accent);}.nav-icon{font-size:18px;line-height:1;}
 .view{display:none;}.view.active{display:block;}
+/* Forms */
 .form-container{padding:20px;}
 .form-group{margin-bottom:16px;}
 .form-label{display:block;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
@@ -97,12 +118,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .form-input:focus,.form-select:focus{outline:none;border-color:var(--accent);}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
-.game-picker{background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;max-height:280px;overflow-y:auto;}
-.game-option{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;font-size:14px;}
+.game-picker{background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;max-height:320px;overflow-y:auto;}
+.game-option{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;font-size:13px;}
 .game-option:last-child{border-bottom:none;}
 .game-option:active{background:rgba(0,229,160,0.1);}
 .game-option .go-label{font-weight:600;}
-.game-option .go-odds{font-size:12px;color:var(--muted);margin-top:2px;}
+.game-option .go-date{font-size:11px;color:var(--accent);font-weight:600;margin-bottom:2px;}
+.game-option .go-odds{font-size:11px;color:var(--muted);margin-top:2px;}
 .game-option.selected{background:rgba(0,229,160,0.1);border-left:3px solid var(--accent);}
 .picker-loading{padding:16px;text-align:center;color:var(--muted);font-size:13px;}
 .market-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
@@ -111,12 +133,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .btn{width:100%;padding:14px;border:none;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;}
 .btn-primary{background:var(--accent);color:#000;}
 .btn-primary:active{transform:scale(0.97);filter:brightness(0.9);}
+.btn-danger{background:var(--accent2);color:#fff;}
 .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
 .btn:disabled{opacity:0.4;cursor:not-allowed;}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-size:14px;font-weight:600;max-width:calc(100% - 40px);z-index:999;opacity:0;transition:all 0.3s;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .toast.success{border-color:var(--accent);color:var(--accent);}
 .toast.error{border-color:var(--accent2);color:var(--accent2);}
+/* Confirm modal */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+.confirm-overlay.open{display:flex;}
+.confirm-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:340px;width:100%;}
+.confirm-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;margin-bottom:8px;}
+.confirm-msg{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:20px;}
+.confirm-amount{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:900;color:var(--accent3);text-align:center;margin:16px 0;}
+.confirm-sub{font-size:13px;color:var(--muted);text-align:center;margin-bottom:20px;}
+.confirm-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+/* Edit modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:200;display:none;align-items:flex-end;}
 .modal-overlay.open{display:flex;}
 .modal-sheet{width:100%;max-width:480px;margin:0 auto;background:var(--surface);border-radius:20px 20px 0 0;border-top:1px solid var(--border);padding:0 0 max(20px,env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;animation:slideUp 0.3s ease;}
@@ -129,6 +162,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .winner-tag{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:600;margin-top:8px;}
 .winner-tag.matt{background:rgba(0,229,160,0.12);color:var(--matt);border:1px solid rgba(0,229,160,0.3);}
 .winner-tag.sam{background:rgba(77,159,255,0.12);color:var(--sam);border:1px solid rgba(77,159,255,0.3);}
+/* Stats */
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px;}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
 .stat-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
@@ -141,19 +175,45 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .league-list{padding:0 20px;display:flex;flex-direction:column;gap:6px;}
 .league-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;}
 .league-name{font-weight:600;font-size:14px;}
-.league-record{font-size:12px;color:var(--muted);margin-top:2px;}
 .league-net{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
 .net-pos{color:var(--accent);}.net-neg{color:var(--accent2);}
+/* Auto tab */
 .auto-container{padding:20px;}
 .auto-hero{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;margin-bottom:16px;}
 .auto-icon{font-size:48px;margin-bottom:12px;}
 .auto-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;margin-bottom:6px;}
 .auto-desc{font-size:13px;color:var(--muted);line-height:1.5;}
 .auto-result{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;font-size:14px;display:none;}
-.auto-result.show{display:block;}
-.auto-result.success{border-color:var(--accent);}
+.auto-result.show{display:block;}.auto-result.success{border-color:var(--accent);}
 .result-count{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;color:var(--accent);}
 .result-label{color:var(--muted);font-size:13px;margin-top:2px;}
+/* Payout tab */
+.payout-container{padding:20px;}
+.payout-hero{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.payout-hero-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+.payout-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:14px;}
+.payout-player{text-align:center;}
+.payout-player-name{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.payout-player-name.matt{color:var(--matt);}.payout-player-name.sam{color:var(--sam);}
+.payout-wl{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;line-height:1;margin-top:4px;}
+.payout-net{font-size:13px;font-weight:600;margin-top:3px;}
+.payout-balance-row{border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between;align-items:center;}
+.payout-balance-label{font-size:13px;color:var(--muted);}
+.payout-balance-val{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;}
+.payout-due-box{background:rgba(255,214,10,0.08);border:1px solid rgba(255,214,10,0.3);border-radius:var(--radius);padding:16px;text-align:center;margin-bottom:16px;}
+.payout-due-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent3);margin-bottom:6px;}
+.payout-due-amount{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:900;color:var(--accent3);line-height:1;}
+.payout-due-sub{font-size:12px;color:var(--muted);margin-top:4px;}
+.payout-games-list{margin-top:16px;display:flex;flex-direction:column;gap:6px;}
+.payout-game-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;}
+.payout-game-name{font-size:13px;font-weight:600;}
+.payout-game-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.payout-game-winner{font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;}
+.payout-game-winner.matt{background:rgba(0,229,160,0.15);color:var(--matt);}
+.payout-game-winner.sam{background:rgba(77,159,255,0.15);color:var(--sam);}
+.no-payout-box{text-align:center;padding:32px 20px;color:var(--muted);}
+.no-payout-icon{font-size:48px;margin-bottom:12px;}
+/* Checkbox */
 .checkbox-row{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;}
 .checkbox-box{width:20px;height:20px;border-radius:4px;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;}
 .checkbox-box.checked{background:var(--accent);border-color:var(--accent);}
@@ -163,12 +223,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 </head>
 <body>
 <div id="loader"><div class="logo-text">SAM VS MATT</div><div class="sub">Bet Tracker</div><div class="loader-bar"><div class="loader-bar-inner"></div></div></div>
+
 <div id="app">
   <div class="header">
     <div class="header-title"><span class="mc">MATT</span> VS <span class="sc">SAM</span></div>
     <div class="sync-btn" id="syncBtn" onclick="syncScores()">🔄</div>
   </div>
   <div class="scroll-content">
+
     <!-- HOME -->
     <div class="view active" id="view-home">
       <div class="period-toggle">
@@ -184,20 +246,56 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
           <div class="player-card" id="samCard"><div class="player-name">Sam</div><div class="player-wins" id="samWins">—</div><div class="player-record" id="samRecord">0-0</div><div class="player-net" id="samNet">$0</div></div>
         </div>
       </div>
+      <!-- Current payout period card -->
+      <div class="period-card" id="periodCard">
+        <div class="period-card-title">📋 Current Payout Period</div>
+        <div class="period-row">
+          <div class="period-player"><div class="period-player-name matt">Matt</div><div class="period-wl" id="periodMattWL">0-0</div><div class="period-net" id="periodMattNet">$0</div></div>
+          <div class="period-divider">VS</div>
+          <div class="period-player"><div class="period-player-name sam">Sam</div><div class="period-wl" id="periodSamWL">0-0</div><div class="period-net" id="periodSamNet">$0</div></div>
+        </div>
+        <div class="period-balance">
+          <div class="period-balance-label" id="periodBalanceLabel">Balance</div>
+          <div class="period-balance-val" id="periodBalanceVal">$0</div>
+        </div>
+      </div>
       <div class="balance-banner even" id="balanceBanner">
-        <div><div class="balance-label" id="balanceLabel">Unpaid Balance</div><div class="balance-amount" id="balanceAmount">$0</div></div>
+        <div><div class="balance-label" id="balanceLabel">All-time Unpaid</div><div class="balance-amount" id="balanceAmount">$0</div></div>
         <div id="payoutPill" style="display:none" class="payout-pill">PAYOUT DUE</div>
+      </div>
+      <!-- Live scores section -->
+      <div id="liveSection" style="display:none">
+        <div class="section-header"><div class="section-title"><span class="live-dot"></span>Live Now</div></div>
+        <div class="live-list" id="liveList"></div>
       </div>
       <div class="section-header"><div class="section-title">Recent Games</div><div class="section-action" onclick="loadHome()">Refresh</div></div>
       <div class="games-list" id="gamesList"><div class="empty-state"><div class="spinner"></div></div></div>
     </div>
+
     <!-- ADD -->
     <div class="view" id="view-add">
       <div class="form-container">
-        <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="addDate"></div>
-        <div class="form-group"><label class="form-label">League</label><select class="form-select" id="addLeague" onchange="fetchGames()"><option value="NCAA MBB">NCAA MBB</option><option value="NBA">NBA</option><option value="NFL">NFL</option><option value="NCAA F">NCAA F</option><option value="NHL">NHL</option><option value="MLB">MLB</option><option value="Other">Other</option></select></div>
-        <div class="form-group" id="gamePickerGroup"><label class="form-label">Pick a Game</label><div id="gamePickerList" class="game-picker"><div class="picker-loading">Select a date &amp; league to load games</div></div></div>
-        <div id="marketGroup" style="display:none"><div class="form-group"><label class="form-label">Market</label><div class="market-pills" id="marketPills"></div></div></div>
+        <div class="form-group">
+          <label class="form-label">League</label>
+          <select class="form-select" id="addLeague" onchange="fetchGames()">
+            <option value="NCAA MBB">NCAA MBB</option>
+            <option value="NBA">NBA</option>
+            <option value="NFL">NFL</option>
+            <option value="NCAA F">NCAA F</option>
+            <option value="NHL">NHL</option>
+            <option value="MLB">MLB</option>
+            <option value="PGA Tour">PGA Tour</option>
+            <option value="Golf Majors">Golf Majors</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group" id="gamePickerGroup">
+          <label class="form-label">Pick a Game <span style="color:var(--muted);font-size:10px;font-weight:400;letter-spacing:0">— all upcoming</span></label>
+          <div id="gamePickerList" class="game-picker"><div class="picker-loading">Select a league to load upcoming games</div></div>
+        </div>
+        <div id="marketGroup" style="display:none">
+          <div class="form-group"><label class="form-label">Market</label><div class="market-pills" id="marketPills"></div></div>
+        </div>
         <div class="form-row" style="margin-bottom:16px">
           <div class="form-group" style="margin:0"><label class="form-label">Fav (Team 1)</label><input type="text" class="form-input" id="addTeam1" placeholder="Favorite"></div>
           <div class="form-group" style="margin:0"><label class="form-label">Dog (Team 2)</label><input type="text" class="form-input" id="addTeam2" placeholder="Underdog"></div>
@@ -210,6 +308,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
         <button class="btn btn-primary" onclick="submitAddGame()">✚ Add Bet</button>
       </div>
     </div>
+
     <!-- STATS -->
     <div class="view" id="view-stats">
       <div style="padding-top:20px">
@@ -220,6 +319,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
         <div class="league-list" id="leagueList"><div class="empty-state"><div class="spinner"></div></div></div>
       </div>
     </div>
+
     <!-- AUTO -->
     <div class="view" id="view-auto">
       <div class="auto-container">
@@ -228,14 +328,26 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
         <div class="auto-result" id="autoResult"></div>
       </div>
     </div>
-  </div>
+
+    <!-- PAYOUT -->
+    <div class="view" id="view-payout">
+      <div class="payout-container" id="payoutContent">
+        <div class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </div><!-- end scroll-content -->
+
   <div class="bottom-nav">
     <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><div class="nav-icon">🏠</div><div>Home</div></div>
     <div class="nav-item" id="nav-add" onclick="switchTab('add')"><div class="nav-icon">➕</div><div>Add</div></div>
     <div class="nav-item" id="nav-stats" onclick="switchTab('stats')"><div class="nav-icon">📊</div><div>Stats</div></div>
     <div class="nav-item" id="nav-auto" onclick="switchTab('auto')"><div class="nav-icon">⚡</div><div>Auto</div></div>
+    <div class="nav-item" id="nav-payout" onclick="switchTab('payout')"><div class="nav-icon">💰</div><div>Payout</div></div>
   </div>
 </div>
+
+<!-- EDIT MODAL -->
 <div class="modal-overlay" id="editModal" onclick="closeEditIfOutside(event)">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
@@ -257,19 +369,34 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
     </div>
   </div>
 </div>
+
+<!-- PAYOUT CONFIRM MODAL -->
+<div class="confirm-overlay" id="confirmModal">
+  <div class="confirm-box">
+    <div class="confirm-title">💰 Process Payout?</div>
+    <div class="confirm-msg" id="confirmMsg">Are you sure you want to process this payout?</div>
+    <div class="confirm-amount" id="confirmAmount">$0</div>
+    <div class="confirm-sub" id="confirmSub"></div>
+    <div class="confirm-btns">
+      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmPayout()">Yes, Pay Out</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
+
 <script>
 const API='https://script.google.com/macros/s/AKfycbwTFFmweXJrHJ1Go0KRS5G7UnRGsxWvU8JNXKNm7iRr-qQcjzmDCo216moM01vA0x2E/exec';
-let _allGames=[],_selectedGameIdx=-1,_selectedMktIdx=-1,_paidChecked=false,_balanceData=null,_currentPeriod='week';
+let _allGames=[],_selectedGameIdx=-1,_selectedMktIdx=-1;
+let _paidChecked=false,_balanceData=null,_currentPeriod='week';
+let _liveInterval=null,_payoutStats=null;
 
 async function apiGet(action,params={}){const url=new URL(API);url.searchParams.set('action',action);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const r=await fetch(url.toString());return r.json();}
 async function apiPost(action,data={}){const r=await fetch(API,{method:'POST',body:JSON.stringify({action,data})});return r.json();}
 
 window.addEventListener('load',()=>{
-  const t=new Date();
-  document.getElementById('addDate').value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-  document.getElementById('addDate').addEventListener('change',fetchGames);
-  setTimeout(()=>{document.getElementById('loader').classList.add('hidden');loadHome();},1400);
+  setTimeout(()=>{document.getElementById('loader').classList.add('hidden');startHomeTab();},1400);
   if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 });
 
@@ -278,9 +405,16 @@ function switchTab(tab){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('view-'+tab).classList.add('active');
   document.getElementById('nav-'+tab).classList.add('active');
+  if(tab==='home'){startHomeTab();}
+  else{stopLivePolling();}
   if(tab==='stats')loadStats();
   if(tab==='add')fetchGames();
+  if(tab==='payout')loadPayoutTab();
 }
+
+function startHomeTab(){loadHome();startLivePolling();}
+function startLivePolling(){loadLiveScores();_liveInterval=setInterval(loadLiveScores,60000);}
+function stopLivePolling(){clearInterval(_liveInterval);_liveInterval=null;}
 
 function setPeriod(p){
   _currentPeriod=p;
@@ -290,9 +424,13 @@ function setPeriod(p){
 
 async function loadHome(){
   try{
-    const[games,balance]=await Promise.all([apiGet('getRecentGames'),apiGet('getBalance')]);
-    _balanceData=balance;renderScoreboard(balance);renderBalance(balance);renderGames(games);
-  }catch(e){document.getElementById('gamesList').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load. Check connection.</div></div>';}
+    const[games,balance,period]=await Promise.all([apiGet('getRecentGames'),apiGet('getBalance'),apiGet('getPayoutPeriodStats')]);
+    _balanceData=balance;
+    renderScoreboard(balance);
+    renderBalance(balance);
+    renderPeriodCard(period);
+    renderGames(games);
+  }catch(e){document.getElementById('gamesList').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load.</div></div>';}
 }
 
 function getPeriodData(b){
@@ -311,16 +449,27 @@ function renderScoreboard(b){
   const samL=d?d.samLosses:((b.mattWins||0)+(b.samWins||0))-(b.samWins||0);
   const mattNet=d?d.mattNet:(b.mattNet||0),samNet=d?d.samNet:(b.samNet||0);
   document.getElementById('recordLabel').textContent=pd?pd.label:'All Time';
-  document.getElementById('mattWins').textContent=mattW;
-  document.getElementById('samWins').textContent=samW;
-  document.getElementById('mattRecord').textContent=`${mattW}-${mattL} W-L`;
-  document.getElementById('samRecord').textContent=`${samW}-${samL} W-L`;
-  document.getElementById('mattNet').textContent=(mattNet>=0?'+':'')+'$'+mattNet.toFixed(2);
-  document.getElementById('samNet').textContent=(samNet>=0?'+':'')+'$'+samNet.toFixed(2);
-  document.getElementById('mattNet').style.color=mattNet>=0?'var(--matt)':'var(--accent2)';
-  document.getElementById('samNet').style.color=samNet>=0?'var(--sam)':'var(--accent2)';
+  document.getElementById('mattWins').textContent=mattW;document.getElementById('samWins').textContent=samW;
+  document.getElementById('mattRecord').textContent=`${mattW}-${mattL} W-L`;document.getElementById('samRecord').textContent=`${samW}-${samL} W-L`;
+  document.getElementById('mattNet').textContent=(mattNet>=0?'+':'')+'$'+mattNet.toFixed(2);document.getElementById('samNet').textContent=(samNet>=0?'+':'')+'$'+samNet.toFixed(2);
+  document.getElementById('mattNet').style.color=mattNet>=0?'var(--matt)':'var(--accent2)';document.getElementById('samNet').style.color=samNet>=0?'var(--sam)':'var(--accent2)';
   document.getElementById('mattCard').className='player-card'+(mattW>samW?' winning':mattW<samW?' losing':'');
   document.getElementById('samCard').className='player-card'+(samW>mattW?' winning':samW<mattW?' losing':'');
+}
+
+function renderPeriodCard(p){
+  if(!p){document.getElementById('periodCard').style.display='none';return;}
+  document.getElementById('periodCard').style.display='block';
+  document.getElementById('periodMattWL').textContent=`${p.mattWins}-${p.mattLosses}`;
+  document.getElementById('periodSamWL').textContent=`${p.samWins}-${p.samLosses}`;
+  document.getElementById('periodMattNet').textContent=(p.mattNet>=0?'+':'')+'$'+p.mattNet.toFixed(2);
+  document.getElementById('periodMattNet').style.color=p.mattNet>=0?'var(--matt)':'var(--accent2)';
+  document.getElementById('periodSamNet').textContent=(p.samNet>=0?'+':'')+'$'+p.samNet.toFixed(2);
+  document.getElementById('periodSamNet').style.color=p.samNet>=0?'var(--sam)':'var(--accent2)';
+  const abs=Math.abs(p.unpaidBalance||0);
+  document.getElementById('periodBalanceLabel').textContent=abs<0.01?'All Square':`${p.owes} owes ${p.owed}`;
+  document.getElementById('periodBalanceVal').textContent='$'+abs.toFixed(2);
+  document.getElementById('periodBalanceVal').style.color=abs<0.01?'var(--accent)':p.unpaidBalance>0?'var(--accent2)':'var(--sam)';
 }
 
 function renderBalance(b){
@@ -331,6 +480,21 @@ function renderBalance(b){
   else{banner.className='balance-banner owed';document.getElementById('balanceLabel').textContent=`${b.owes} owes ${b.owed}`;document.getElementById('balanceAmount').textContent='$'+abs.toFixed(2);
     if(payout>=20){document.getElementById('payoutPill').style.display='block';document.getElementById('payoutPill').textContent=`$${payout} DUE`;}
     else document.getElementById('payoutPill').style.display='none';}
+}
+
+async function loadLiveScores(){
+  try{
+    const games=await apiGet('getLiveScores');
+    const section=document.getElementById('liveSection'),list=document.getElementById('liveList');
+    if(!games||!games.length){section.style.display='none';return;}
+    section.style.display='block';
+    list.innerHTML=games.map(g=>`
+      <div class="live-card">
+        <div class="live-header"><div class="live-name">${g.awayTeam} @ ${g.homeTeam}</div><span class="live-badge">LIVE</span></div>
+        <div class="live-score">${g.awayScore} — ${g.homeScore}</div>
+        <div class="live-clock">${g.detail||('Period '+g.period+' · '+g.clock)}</div>
+      </div>`).join('');
+  }catch(e){}
 }
 
 function renderGames(games){
@@ -358,6 +522,85 @@ function renderGames(games){
   }).join('');
 }
 
+// PAYOUT TAB
+async function loadPayoutTab(){
+  const container=document.getElementById('payoutContent');
+  container.innerHTML='<div class="empty-state"><div class="spinner"></div></div>';
+  try{
+    const p=await apiGet('getPayoutPeriodStats');
+    _payoutStats=p;
+    renderPayoutTab(p);
+  }catch(e){container.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load.</div></div>';}
+}
+
+function renderPayoutTab(p){
+  const container=document.getElementById('payoutContent');
+  const abs=Math.abs(p.unpaidBalance||0);
+  const payout=p.payoutDue||0;
+  const total=(p.mattWins||0)+(p.samWins||0);
+
+  let duebox='';
+  if(payout>=20){
+    duebox=`<div class="payout-due-box">
+      <div class="payout-due-label">💸 Payout Due</div>
+      <div class="payout-due-amount">$${payout}</div>
+      <div class="payout-due-sub">${p.owes} owes ${p.owed} · ${Math.floor(abs/20)} × $20 increment${Math.floor(abs/20)>1?'s':''}</div>
+    </div>
+    <button class="btn btn-danger" onclick="showConfirm()" style="margin-bottom:16px">💰 Process $${payout} Payout</button>`;
+  } else {
+    duebox=`<div class="no-payout-box"><div class="no-payout-icon">✅</div><div style="font-weight:600;margin-bottom:6px">No Payout Due</div><div style="font-size:13px">Balance is $${abs.toFixed(2)} — need $${(20-abs).toFixed(2)} more to hit $20</div></div>`;
+  }
+
+  const gamesHtml=p.games&&p.games.length?p.games.map(g=>`
+    <div class="payout-game-row">
+      <div><div class="payout-game-name">${g.game}</div><div class="payout-game-meta">${g.date} · ${g.league} · ${g.finalScore}</div></div>
+      <span class="payout-game-winner ${g.winner.toLowerCase()}">${g.winner} +$${g.amt}</span>
+    </div>`).join(''):'<div style="color:var(--muted);font-size:13px;padding:12px 0">No unpaid games yet</div>';
+
+  container.innerHTML=`
+    <div class="payout-hero">
+      <div class="payout-hero-title">Current Payout Period</div>
+      <div class="payout-vs">
+        <div class="payout-player"><div class="payout-player-name matt">Matt</div><div class="payout-wl" style="color:var(--matt)">${p.mattWins}-${p.mattLosses}</div><div class="payout-net" style="color:${p.mattNet>=0?'var(--matt)':'var(--accent2)'}">${p.mattNet>=0?'+':''}$${p.mattNet.toFixed(2)}</div></div>
+        <div class="vs-divider">VS</div>
+        <div class="payout-player"><div class="payout-player-name sam">Sam</div><div class="payout-wl" style="color:var(--sam)">${p.samWins}-${p.samLosses}</div><div class="payout-net" style="color:${p.samNet>=0?'var(--sam)':'var(--accent2)'}">${p.samNet>=0?'+':''}$${p.samNet.toFixed(2)}</div></div>
+      </div>
+      <div class="payout-balance-row">
+        <div class="payout-balance-label">${abs<0.01?'All Square':p.owes+' owes '+p.owed}</div>
+        <div class="payout-balance-val" style="color:${abs<0.01?'var(--accent)':'var(--accent3)'}">\$${abs.toFixed(2)}</div>
+      </div>
+    </div>
+    ${duebox}
+    <div class="section-header" style="padding:0 0 10px"><div class="section-title">Unpaid Games (${total})</div></div>
+    <div class="payout-games-list">${gamesHtml}</div>`;
+}
+
+function showConfirm(){
+  if(!_payoutStats)return;
+  const abs=Math.abs(_payoutStats.unpaidBalance||0);
+  document.getElementById('confirmAmount').textContent='$'+_payoutStats.payoutDue;
+  document.getElementById('confirmMsg').textContent=`${_payoutStats.owes} pays ${_payoutStats.owed}. This will mark ${Math.ceil(_payoutStats.payoutDue/5)} games as paid and hide them in the sheet.`;
+  document.getElementById('confirmSub').textContent=`Remaining balance after: $${(abs-_payoutStats.payoutDue).toFixed(2)}`;
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeConfirm(){document.getElementById('confirmModal').classList.remove('open');}
+
+async function confirmPayout(){
+  closeConfirm();
+  showToast('Processing payout...','success');
+  try{
+    const r=await apiPost('processPayout');
+    if(r.success){
+      showToast(`✅ $${r.payoutAmount} paid out! ${r.gamesMarked} games hidden.`,'success');
+      loadPayoutTab();
+      loadHome();
+    } else {
+      showToast('⚠️ '+r.message,'error');
+    }
+  }catch(e){showToast('Error processing payout','error');}
+}
+
+// STATS
 async function loadStats(){
   try{
     const b=await apiGet('getBalance');
@@ -373,21 +616,30 @@ async function loadStats(){
       <div class="stat-card"><div class="stat-label">Payout Due</div><div class="stat-value" style="color:${(b.payoutDue||0)>=20?'var(--accent3)':'var(--muted)'}">$${b.payoutDue||0}</div><div class="stat-sub">${(b.payoutDue||0)>=20?'🔔 Due now':'Not yet'}</div></div>`;
     if(b.byLeague&&Object.keys(b.byLeague).length){
       document.getElementById('leagueList').innerHTML=Object.entries(b.byLeague).sort((a,b2)=>Math.abs(b2[1].mattNet)-Math.abs(a[1].mattNet)).map(([league,d])=>`
-        <div class="league-row"><div><div class="league-name">${league}</div><div class="league-record" style="color:var(--matt)">Matt ${d.mattWins}-${d.mattLosses}</div><div class="league-record" style="color:var(--sam)">Sam ${d.samWins}-${d.samLosses}</div></div>
+        <div class="league-row"><div><div class="league-name">${league}</div><div style="font-size:12px;color:var(--matt)">${d.mattWins}-${d.mattLosses} Matt</div><div style="font-size:12px;color:var(--sam)">${d.samWins}-${d.samLosses} Sam</div></div>
         <div class="league-net ${d.mattNet>=0?'net-pos':'net-neg'}">${d.mattNet>=0?'+':''}$${d.mattNet}<div style="font-size:11px;color:var(--muted);font-weight:400">Matt net</div></div></div>`).join('');
     }else{document.getElementById('leagueList').innerHTML='<div class="empty-state"><div class="empty-text">No data yet</div></div>';}
   }catch(e){console.error(e);}
 }
 
+// ADD GAME — loads ALL upcoming games for league
 async function fetchGames(){
-  const date=document.getElementById('addDate').value,league=document.getElementById('addLeague').value;
-  if(!date||league==='Other'){document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Select a date &amp; league</div>';return;}
-  document.getElementById('gamePickerList').innerHTML='<div class="picker-loading"><span class="spinner"></span> Loading...</div>';
+  const league=document.getElementById('addLeague').value;
+  if(league==='Other'){document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Enter game details manually</div>';document.getElementById('marketGroup').style.display='none';return;}
+  document.getElementById('gamePickerList').innerHTML='<div class="picker-loading"><span class="spinner"></span> Loading all upcoming '+league+' games...</div>';
   document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
   try{
-    const games=await apiGet('getGamesForDate',{league,dateStr:date});_allGames=games||[];
-    if(!_allGames.length||(_allGames[0]&&_allGames[0].error)){document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">No games found</div>';return;}
-    document.getElementById('gamePickerList').innerHTML=_allGames.map((g,i)=>`<div class="game-option" id="gopt-${i}" onclick="selectGame(${i})"><div class="go-label">${g.label||(g.awayTeam+' @ '+g.homeTeam)}</div>${g.options&&g.options[0]?`<div class="go-odds">${g.options[0].oddsStr||''}</div>`:''}</div>`).join('');
+    const games=await apiGet('getGamesForLeague',{league});
+    _allGames=games||[];
+    if(!_allGames.length||(_allGames[0]&&_allGames[0].error)){
+      document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">No upcoming games found</div>';return;
+    }
+    document.getElementById('gamePickerList').innerHTML=_allGames.map((g,i)=>`
+      <div class="game-option" id="gopt-${i}" onclick="selectGame(${i})">
+        <div class="go-date">${g.displayDate||g.gameDate}</div>
+        <div class="go-label">${g.awayTeam} @ ${g.homeTeam}</div>
+        ${g.options&&g.options[0]?`<div class="go-odds">${g.options[0].oddsStr||''}</div>`:''}
+      </div>`).join('');
   }catch(e){document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Error loading games</div>';}
 }
 
@@ -408,20 +660,26 @@ function selectMarket(gameIdx,mktIdx){
   else{document.getElementById('addTeam1').value=g.sheetAway||'';document.getElementById('addTeam2').value=g.sheetHome||'';}
   document.getElementById('addLine').value=o.line!==null&&o.line!==undefined?o.line:'';
   if(o.favOdds!==null&&o.favOdds!==undefined){const fo=o.favOdds,dgo=o.dogOdds;const disp=dgo!==null&&dgo!==undefined&&Math.abs(Math.abs(dgo)-110)<Math.abs(Math.abs(fo)-110)?dgo:fo;document.getElementById('addOdds').value=(disp>0?'+':'')+disp;}
-  if(g.gameDate)document.getElementById('addDate').value=g.gameDate;
+  if(g.gameDate)document.getElementById('addDate')?document.getElementById('addDate').value=g.gameDate:null;
 }
 
 async function submitAddGame(){
   const t1=document.getElementById('addTeam1').value.trim(),t2=document.getElementById('addTeam2').value.trim();
   if(!t1||!t2){showToast('Enter both team names','error');return;}
   const g=_allGames[_selectedGameIdx]||{};
-  const d={date:document.getElementById('addDate').value,league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:document.getElementById('addOdds').value,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null};
-  try{const r=await apiPost('addGame',d);if(r&&r.duplicate){showToast('⚠️ Already in sheet at row '+r.row,'error');return;}
-    showToast('✅ Added!','success');document.getElementById('addTeam1').value='';document.getElementById('addTeam2').value='';document.getElementById('addLine').value='';document.getElementById('addOdds').value='';
-    document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Select a date &amp; league to load games</div>';document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
+  const d={date:g.gameDate||new Date().toISOString().split('T')[0],league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:document.getElementById('addOdds').value,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null};
+  try{
+    const r=await apiPost('addGame',d);
+    if(r&&r.duplicate){showToast('⚠️ Already in sheet at row '+r.row,'error');return;}
+    showToast('✅ Added!','success');
+    document.getElementById('addTeam1').value='';document.getElementById('addTeam2').value='';
+    document.getElementById('addLine').value='';document.getElementById('addOdds').value='';
+    document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Select a league to load upcoming games</div>';
+    document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
   }catch(e){showToast('Error: '+e.message,'error');}
 }
 
+// EDIT
 function openEdit(g){
   document.getElementById('editTitle').textContent=g.game;document.getElementById('editMeta').textContent=`${g.date} · ${g.league} · Line: ${g.line||'—'} · Fav: ${g.favorite}`;
   document.getElementById('editScore').value=g.finalScore||'';document.getElementById('editWinner').value=g.winner||'';document.getElementById('editAmt').value=g.amtWon||'';
@@ -437,10 +695,13 @@ function updatePaidBox(){document.getElementById('paidBox').className='checkbox-
 async function previewWinner(){
   const score=document.getElementById('editScore').value.trim(),line=parseFloat(document.getElementById('editLine').value),fav=document.getElementById('editFav').value,prev=document.getElementById('winnerPreview');
   if(!score||!line){prev.style.display='none';return;}
-  try{const r=await apiPost('resolveScore',{scoreStr:score,favorite:fav,line,favoritePicker:fav});if(!r){prev.style.display='none';return;}
+  try{
+    const r=await apiPost('resolveScore',{scoreStr:score,favorite:fav,line,favoritePicker:fav});
+    if(!r){prev.style.display='none';return;}
     prev.style.display='block';const isMatt=r.winner==='Matt';
     prev.innerHTML=`<div class="winner-tag ${isMatt?'matt':'sam'}">${r.covered?'🏆 Covered':'💨 Missed'} by ${Math.abs(r.margin-r.line).toFixed(1)} → <strong>${r.winner} wins</strong></div>`;
-    document.getElementById('editWinner').value=r.winner;}catch(e){document.getElementById('winnerPreview').style.display='none';}
+    document.getElementById('editWinner').value=r.winner;
+  }catch(e){document.getElementById('winnerPreview').style.display='none';}
 }
 
 async function saveEdit(){
@@ -448,10 +709,12 @@ async function saveEdit(){
   try{await apiPost('updateGame',d);showToast('✅ Saved!','success');closeEdit();loadHome();}catch(e){showToast('Error saving','error');}
 }
 
+// AUTO UPDATE
 async function runAutoUpdate(){
   const btn=document.getElementById('autoBtn'),result=document.getElementById('autoResult');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Fetching...';result.className='auto-result';result.style.display='none';
-  try{const r=await apiPost('autoUpdateScores');btn.disabled=false;btn.innerHTML='🔄 Fetch &amp; Update All Scores';
+  try{
+    const r=await apiPost('autoUpdateScores');btn.disabled=false;btn.innerHTML='🔄 Fetch &amp; Update All Scores';
     result.className='auto-result show '+(r.updated>0?'success':'');
     result.innerHTML=`<div class="result-count">${r.updated}</div><div class="result-label">games updated · ${r.pending} total pending</div>${r.errors&&r.errors.length?`<div style="color:var(--accent2);margin-top:8px;font-size:12px">${r.errors.join('<br>')}</div>`:''}${r.updated===0?`<div style="color:var(--muted);margin-top:6px;font-size:13px">No completed games found yet.</div>`:''}`;
     if(r.updated>0){showToast(`✅ Updated ${r.updated} game${r.updated>1?'s':''},'success`);loadHome();}
@@ -460,7 +723,7 @@ async function runAutoUpdate(){
 
 async function syncScores(){
   const btn=document.getElementById('syncBtn');btn.classList.add('spinning');
-  try{const r=await apiPost('autoUpdateScores');if(r.updated>0){showToast(`✅ ${r.updated} score${r.updated>1?'s':''} updated`,'success');loadHome();}else showToast('No new scores','success');}
+  try{const r=await apiPost('autoUpdateScores');if(r.updated>0){showToast(`✅ ${r.updated} updated`,'success');loadHome();}else showToast('No new scores','success');}
   catch(e){showToast('Sync failed','error');}
   btn.classList.remove('spinning');
 }

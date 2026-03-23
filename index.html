@@ -817,7 +817,7 @@ async function runAutoUpdate(){
     const r=await apiPost('autoUpdateScores');btn.disabled=false;btn.innerHTML='🔄 Fetch &amp; Update All Scores';
     result.className='auto-result show '+(r.updated>0?'success':'');
     result.innerHTML=`<div class="result-count">${r.updated}</div><div class="result-label">games updated · ${r.pending} total pending</div>${r.errors&&r.errors.length?`<div style="color:var(--accent2);margin-top:8px;font-size:12px">${r.errors.join('<br>')}</div>`:''}${r.updated===0?`<div style="color:var(--muted);margin-top:6px;font-size:13px">No completed games found yet.</div>`:''}`;
-    if(r.updated>0){showToast(`✅ Updated ${r.updated} game${r.updated>1?'s':'`},'success`);loadHome();}
+    if(r.updated>0){showToast(`✅ Updated ${r.updated} game${r.updated>1?'s':''}`, 'success');loadHome();}
   }catch(e){btn.disabled=false;btn.innerHTML='🔄 Fetch &amp; Update All Scores';result.className='auto-result show error';result.innerHTML=`<div style="color:var(--accent2)">Error: ${e.message}</div>`;}
 }
 

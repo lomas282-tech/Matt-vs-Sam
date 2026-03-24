@@ -490,9 +490,7 @@ function buildLiveMap(liveGames,pendingGames){
       const favCovering=(favScore-dogScore)>line;
       map[pg.game]={
         favScore,dogScore,favCovering,
-        state:lg.state||'in',
         clock:lg.clock,period:lg.period,detail:lg.detail,
-        tv:lg.tv||'',
         scoreDisplay:lg.awayTeam+' '+lg.awayScore+' — '+lg.homeTeam+' '+lg.homeScore
       };
       break;
@@ -608,26 +606,19 @@ function renderGames(games,liveMap){
     const scoreHtml=hasFinal?`<div class="game-score">📊 ${g.finalScore}${winnerChip}${g.paidOut?' <span style="color:var(--muted);font-size:11px">· 💵 Paid</span>':''}</div>`:'';
     const timeStr=g.time?` · ${g.time} CT`:'';
 
-    // Live score inline and TV info — only for pending games matched in liveMap
+    // Live score inline — only for pending games
     let liveHtml='';
     let favRowExtra='',dogRowExtra='';
-    let tvStr='';
     if(isPending&&liveMap[g.game]){
       const lv=liveMap[g.game];
-      // TV channel for both live and pre-game
-      if(lv.tv) tvStr=` · 📺 ${lv.tv}`;
-      // Only show live bar and color rows if actually in progress
-      if(lv.state==='in'){
-        const favPickerCovering=lv.favCovering;
-        favRowExtra=favPickerCovering?' live-covering':' live-losing';
-        dogRowExtra=favPickerCovering?' live-losing':' live-covering';
-        liveHtml=`<div class="live-inline">
-          <span class="live-inline-badge">● LIVE</span>
-          <span class="live-inline-score">${lv.scoreDisplay}</span>
-          <span class="live-inline-clock">${lv.detail||('P'+lv.period+' '+lv.clock)}${lv.tv?' · 📺 '+lv.tv:''}</span>
-        </div>`;
-        tvStr=''; // TV already shown in live bar, don't double-show
-      }
+      const favPickerCovering=lv.favCovering;
+      favRowExtra=favPickerCovering?' live-covering':' live-losing';
+      dogRowExtra=favPickerCovering?' live-losing':' live-covering';
+      liveHtml=`<div class="live-inline">
+        <span class="live-inline-badge">● LIVE</span>
+        <span class="live-inline-score">${lv.scoreDisplay}</span>
+        <span class="live-inline-clock">${lv.detail||('P'+lv.period+' '+lv.clock)}</span>
+      </div>`;
     }
 
     return `<div class="game-card ${cls}" onclick='openEdit(${JSON.stringify(g).replace(/'/g,"&#39;")})'>
@@ -637,7 +628,7 @@ function renderGames(games,liveMap){
         <div class="picker-row dog-row${dogRowExtra}"><span class="picker-name ${dogNameClass}">${dogPicker}</span><span class="picker-arrow">→</span><span class="picker-team">${dogTeam}</span><span class="picker-line">${dogLineStr} (dog)</span></div>
       </div>
       ${liveHtml}
-      <div class="game-meta"><span>${g.date}${timeStr}${tvStr}</span><span>${g.league}</span>${g.amtWon?`<span>$${g.amtWon}</span>`:''}</div>
+      <div class="game-meta"><span>${g.date}${timeStr}</span><span>${g.league}</span>${g.amtWon?`<span>$${g.amtWon}</span>`:''}</div>
       ${scoreHtml}
     </div>`;
   }).join('');
@@ -799,7 +790,7 @@ async function submitAddGame(){
   const d={date:g.gameDate||new Date().toISOString().split('T')[0],league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:document.getElementById('addOdds').value,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null};
   try{
     const r=await apiPost('addGame',d);
-    if(r&&r.duplicate){showToast(`⚠️ ${d.game} on ${d.date} already exists`,'error');return;}
+    if(r&&r.duplicate){showToast('⚠️ Already in sheet at row '+r.row,'error');return;}
     showToast('✅ Added!','success');
     document.getElementById('addTeam1').value='';document.getElementById('addTeam2').value='';
     document.getElementById('addLine').value='';document.getElementById('addOdds').value='';

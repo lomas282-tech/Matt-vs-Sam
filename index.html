@@ -613,7 +613,7 @@ function renderGames(games,liveMap){
   completed.sort((a,b)=>{
     const at=a.commenceTime||a.date||'';
     const bt=b.commenceTime||b.date||'';
-    return at>bt?-1:at<bt?1:0;
+    return at<bt?-1:at>bt?1:0;
   });
 
   const sorted=[...pending,...completed];

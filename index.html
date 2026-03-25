@@ -25,6 +25,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .header{padding:16px 20px 12px;padding-top:max(16px,env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-bottom:1px solid var(--border);}
 .header-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;letter-spacing:-0.5px;}
 .header-title .mc{color:var(--matt);}.header-title .sc{color:var(--sam);}
+.header-right{display:flex;align-items:center;gap:8px;}
+.live-indicator{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--accent2);display:none;animation:pulse 1.4s infinite;}
+.live-indicator.active{display:block;}
 .sync-btn{width:36px;height:36px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all 0.2s;}
 .sync-btn:active{transform:scale(0.9);}.sync-btn.spinning{animation:spin 1s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -42,7 +45,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .player-wins{font-size:36px;font-weight:600;line-height:1;margin:6px 0 2px;}
 .player-record{font-size:12px;color:var(--muted);}.player-net{font-size:13px;font-weight:600;margin-top:6px;}
 .vs-divider{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--muted);text-align:center;}
-/* Period card */
 .period-card{margin:14px 20px 0;padding:14px 16px;border-radius:var(--radius);background:var(--card);border:1px solid var(--border);}
 .period-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
 .period-card-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
@@ -57,7 +59,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .period-balance{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
 .period-balance-label{font-size:12px;color:var(--muted);}
 .period-balance-val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;}
-/* Balance banner */
 .balance-banner{margin:14px 20px 0;padding:12px 16px;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;font-size:13px;}
 .balance-banner.owed{background:rgba(255,77,109,0.12);border:1px solid rgba(255,77,109,0.3);}
 .balance-banner.even{background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);}
@@ -65,28 +66,27 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .balance-amount{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
 .balance-banner.owed .balance-amount{color:var(--accent2);}.balance-banner.even .balance-amount{color:var(--accent);}
 .payout-pill{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--accent3);color:#000;letter-spacing:0.5px;}
-/* Section headers */
 .section-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;}
 .section-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
 .section-action{font-size:12px;color:var(--accent);font-weight:600;cursor:pointer;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.25}}
-/* Game cards */
 .games-list{padding:0 20px;display:flex;flex-direction:column;gap:8px;}
 .game-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;}
 .game-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);}
 .game-card.pending::before{background:var(--accent3);}.game-card.complete::before{background:var(--accent);}
+.game-card.live-active{border-color:rgba(255,77,109,0.4);}
+.game-card.live-active::before{background:var(--accent2);}
 .game-card:active{transform:scale(0.98);}
 .game-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
 .game-name{font-weight:600;font-size:14px;flex:1;margin-right:8px;}
 .game-badge{font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 7px;border-radius:4px;white-space:nowrap;text-transform:uppercase;}
 .badge-pending{background:rgba(255,214,10,0.15);color:var(--accent3);border:1px solid rgba(255,214,10,0.3);}
+.badge-live{background:rgba(255,77,109,0.2);color:var(--accent2);border:1px solid rgba(255,77,109,0.5);animation:pulse 1.4s infinite;}
 .badge-win{background:rgba(0,229,160,0.15);color:var(--accent);border:1px solid rgba(0,229,160,0.3);}
-/* Picker rows */
 .picker-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:7px;}
 .picker-row{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;font-size:12px;transition:background 0.3s;}
 .picker-row.fav-row{background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.18);}
 .picker-row.dog-row{background:rgba(77,159,255,0.07);border:1px solid rgba(77,159,255,0.18);}
-/* Live covering = green bg, not covering = red bg */
 .picker-row.fav-row.live-covering{background:rgba(0,229,160,0.18);border-color:rgba(0,229,160,0.5);}
 .picker-row.fav-row.live-losing{background:rgba(255,77,109,0.12);border-color:rgba(255,77,109,0.35);}
 .picker-row.dog-row.live-covering{background:rgba(0,229,160,0.18);border-color:rgba(0,229,160,0.5);}
@@ -96,7 +96,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .picker-arrow{color:var(--muted);font-size:11px;}
 .picker-team{color:var(--text);font-weight:500;flex:1;}
 .picker-line{color:var(--muted);font-size:11px;white-space:nowrap;}
-/* Live score inline bar */
 .live-inline{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.25);margin-bottom:7px;}
 .live-inline-badge{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--accent2);animation:pulse 1.4s infinite;white-space:nowrap;}
 .live-inline-score{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;flex:1;text-align:center;letter-spacing:1px;}
@@ -109,12 +108,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
 .empty-icon{font-size:40px;margin-bottom:12px;}.empty-text{font-size:14px;}
 .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px;}
-/* Bottom nav — 5 tabs */
 .bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(10,10,15,0.95);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:100;}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 6px;cursor:pointer;transition:color 0.2s;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;gap:4px;-webkit-user-select:none;user-select:none;}
 .nav-item.active{color:var(--accent);}.nav-icon{font-size:18px;line-height:1;}
 .view{display:none;}.view.active{display:block;}
-/* Forms */
 .form-container{padding:20px;}
 .form-group{margin-bottom:16px;}
 .form-label{display:block;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
@@ -142,7 +139,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-size:14px;font-weight:600;max-width:calc(100% - 40px);z-index:999;opacity:0;transition:all 0.3s;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .toast.success{border-color:var(--accent);color:var(--accent);}.toast.error{border-color:var(--accent2);color:var(--accent2);}
-/* Confirm modal */
 .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
 .confirm-overlay.open{display:flex;}
 .confirm-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:340px;width:100%;}
@@ -151,7 +147,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .confirm-amount{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:900;color:var(--accent3);text-align:center;margin:12px 0 6px;}
 .confirm-sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:20px;}
 .confirm-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-/* Edit modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:200;display:none;align-items:flex-end;}
 .modal-overlay.open{display:flex;}
 .modal-sheet{width:100%;max-width:480px;margin:0 auto;background:var(--surface);border-radius:20px 20px 0 0;border-top:1px solid var(--border);padding:0 0 max(20px,env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;animation:slideUp 0.3s ease;}
@@ -164,7 +159,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .winner-tag{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:600;margin-top:8px;}
 .winner-tag.matt{background:rgba(0,229,160,0.12);color:var(--matt);border:1px solid rgba(0,229,160,0.3);}
 .winner-tag.sam{background:rgba(77,159,255,0.12);color:var(--sam);border:1px solid rgba(77,159,255,0.3);}
-/* Stats */
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px;}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
 .stat-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
@@ -179,7 +173,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .league-name{font-weight:600;font-size:14px;}
 .league-net{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
 .net-pos{color:var(--accent);}.net-neg{color:var(--accent2);}
-/* Auto tab */
 .auto-container{padding:20px;}
 .auto-hero{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;margin-bottom:16px;}
 .auto-icon{font-size:48px;margin-bottom:12px;}
@@ -189,7 +182,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .auto-result.show{display:block;}.auto-result.success{border-color:var(--accent);}
 .result-count{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;color:var(--accent);}
 .result-label{color:var(--muted);font-size:13px;margin-top:2px;}
-/* Payout tab */
 .payout-container{padding:20px;}
 .payout-hero{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
 .payout-hero-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
@@ -215,7 +207,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .payout-game-winner.sam{background:rgba(77,159,255,0.15);color:var(--sam);}
 .no-payout-box{text-align:center;padding:28px 20px;color:var(--muted);}
 .no-payout-icon{font-size:44px;margin-bottom:10px;}
-/* Checkbox */
 .checkbox-row{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;}
 .checkbox-box{width:20px;height:20px;border-radius:4px;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;}
 .checkbox-box.checked{background:var(--accent);border-color:var(--accent);}
@@ -229,7 +220,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 <div id="app">
   <div class="header">
     <div class="header-title"><span class="mc">MATT</span> VS <span class="sc">SAM</span></div>
-    <div class="sync-btn" id="syncBtn" onclick="syncScores()">🔄</div>
+    <div class="header-right">
+      <span class="live-indicator" id="liveIndicator">● LIVE</span>
+      <div class="sync-btn" id="syncBtn" onclick="syncScores()">🔄</div>
+    </div>
   </div>
   <div class="scroll-content">
 
@@ -248,7 +242,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
           <div class="player-card" id="samCard"><div class="player-name">Sam</div><div class="player-wins" id="samWins">—</div><div class="player-record" id="samRecord">0-0</div><div class="player-net" id="samNet">$0</div></div>
         </div>
       </div>
-      <!-- Current payout period card -->
       <div class="period-card" id="periodCard" style="display:none">
         <div class="period-card-header">
           <div class="period-card-title">📋 Current Payout Period</div>
@@ -391,7 +384,8 @@ const API='https://script.google.com/macros/s/AKfycbzsDH2TZFU5FcGL7JydBLfOu8f_zR
 let _allGames=[],_selectedGameIdx=-1,_selectedMktIdx=-1;
 let _paidChecked=false,_balanceData=null,_currentPeriod='week';
 let _liveInterval=null,_liveData=[],_payoutStats=null;
-let _pendingGames=[]; // cache of pending games for live score matching
+let _pendingGames=[];
+let _cachedGames=[];  // full game list cache to avoid re-fetching on live poll
 
 async function apiGet(action,params={}){const url=new URL(API);url.searchParams.set('action',action);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const r=await fetch(url.toString());return r.json();}
 async function apiPost(action,data={}){const r=await fetch(API,{method:'POST',body:JSON.stringify({action,data})});return r.json();}
@@ -414,14 +408,18 @@ function switchTab(tab){
 }
 
 function startHomeTab(){loadHome();}
-function stopLivePolling(){clearInterval(_liveInterval);_liveInterval=null;}
+function stopLivePolling(){
+  clearInterval(_liveInterval);
+  _liveInterval=null;
+  document.getElementById('liveIndicator').classList.remove('active');
+}
 
-// Start live polling only if there are pending games
 function maybeStartLivePolling(hasPending){
   stopLivePolling();
   if(!hasPending) return;
+  // Poll immediately, then every 30s (was 60s — faster updates during live games)
   loadLiveScores();
-  _liveInterval=setInterval(loadLiveScores,60000);
+  _liveInterval=setInterval(loadLiveScores, 30000);
 }
 
 function setPeriod(p){
@@ -438,36 +436,85 @@ async function loadHome(){
       apiGet('getPayoutPeriodStats')
     ]);
     _balanceData=balance;
+    _cachedGames=games;
     renderScoreboard(balance);
     renderBalance(balance);
     renderPeriodCard(period);
-
-    // Cache pending games for live matching
     _pendingGames=games.filter(g=>!g.finalScore);
-    renderGames(games,{}); // render first without live data
-
-    // Now start live polling only if there are pending games
+    renderGames(games,{});
     maybeStartLivePolling(_pendingGames.length>0);
   }catch(e){
-    document.getElementById('gamesList').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load.</div></div>';
+    document.getElementById('gamesList').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load. Tap Refresh to retry.</div></div>';
   }
 }
 
-// Load live scores and re-render game cards with inline scores
 async function loadLiveScores(){
-  if(!_pendingGames.length) return;
+  if(!_pendingGames.length){stopLivePolling();return;}
   try{
+    // FIX: only fetch live scores — reuse cached game list instead of re-fetching every 30s
     const live=await apiGet('getLiveScores');
     _liveData=live||[];
-    // Re-render just the games list with updated live data
-    const games=await apiGet('getRecentGames');
-    _pendingGames=games.filter(g=>!g.finalScore);
+    const hasLive=_liveData.length>0;
+
+    // Show/hide the LIVE indicator in the header
+    document.getElementById('liveIndicator').classList.toggle('active', hasLive);
+
     const liveMap=buildLiveMap(_liveData,_pendingGames);
-    renderGames(games,liveMap);
+    renderGames(_cachedGames,liveMap);
+
+    // Only re-fetch the full game list if a game just finished (to pick up the new score)
+    // We detect this by checking if any pending game now has a match in liveData as 'post'
+    // For simplicity, do a full refresh every 5 minutes in the background
+    if(!_fullRefreshTimer){
+      _fullRefreshTimer=setTimeout(async()=>{
+        _fullRefreshTimer=null;
+        try{
+          const games=await apiGet('getRecentGames');
+          _cachedGames=games;
+          _pendingGames=games.filter(g=>!g.finalScore);
+          if(!_pendingGames.length) stopLivePolling();
+          renderGames(games,buildLiveMap(_liveData,_pendingGames));
+        }catch(e){}
+      }, 5*60*1000);
+    }
   }catch(e){}
 }
+let _fullRefreshTimer=null;
 
-// Build a map of game-key -> live score data by matching team names
+// ─── TEAM MATCHING ────────────────────────────────────────────────────────────
+// FIX: Much stronger matching to handle ESPN's abbreviated names like
+// "Wichita St" vs "Wichita State", "St John's" vs "St. John's", etc.
+// Mirrors the server-side teamsMatch() logic from Code.gs.
+
+function normClient(s){
+  return (s||'').toLowerCase()
+    .replace(/[^a-z0-9\s]/g,'')  // strip punctuation (handles St. -> st)
+    .replace(/\b(red raiders|crimson tide|golden flashes|golden eagles|blue raiders|red storm|blue hens|scarlet knights|fighting illini|tar heels|blue devils|wolfpack|orange|crimson|red|golden)\b/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+
+function teamMatchClient(a,b){
+  if(!a||!b) return false;
+  const na=normClient(a), nb=normClient(b);
+  if(!na||!nb) return false;
+  if(na===nb) return true;
+  // containment: "wichita st" is in "wichita state" and vice versa
+  if(na.indexOf(nb)>=0||nb.indexOf(na)>=0) return true;
+  // first word match (e.g. "Detroit" matches "Detroit Red Wings")
+  const fa=na.split(' ')[0], fb=nb.split(' ')[0];
+  if(fa.length>=2&&fa===fb) return true;
+  // last word match (e.g. "Wings" matches "Red Wings")
+  const wa=na.split(' '), wb=nb.split(' ');
+  if(wa[wa.length-1]===wb[wb.length-1]&&wa[wa.length-1].length>=3) return true;
+  // all words of shorter name appear in longer name (handles multi-word abbrevs)
+  if(Math.abs(wa.length-wb.length)<=1){
+    const sh=wa.length<=wb.length?wa:wb, lo=wa.length<=wb.length?nb:na;
+    if(sh.every(w=>w.length>=3&&lo.indexOf(w)>=0)) return true;
+  }
+  return false;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function buildLiveMap(liveGames,pendingGames){
   const map={};
   pendingGames.forEach(pg=>{
@@ -475,18 +522,15 @@ function buildLiveMap(liveGames,pendingGames){
     if(parts.length<2) return;
     const favTeam=parts[0].trim(), dogTeam=parts[1].trim();
     for(const lg of liveGames){
-      // Try to match fav/dog against home/away ESPN names
       const fMatchHome=teamMatchClient(favTeam,lg.homeTeam)||teamMatchClient(favTeam,lg.homeDisplay)||teamMatchClient(favTeam,lg.homeAbbr);
       const fMatchAway=teamMatchClient(favTeam,lg.awayTeam)||teamMatchClient(favTeam,lg.awayDisplay)||teamMatchClient(favTeam,lg.awayAbbr);
       const dMatchHome=teamMatchClient(dogTeam,lg.homeTeam)||teamMatchClient(dogTeam,lg.homeDisplay)||teamMatchClient(dogTeam,lg.homeAbbr);
       const dMatchAway=teamMatchClient(dogTeam,lg.awayTeam)||teamMatchClient(dogTeam,lg.awayDisplay)||teamMatchClient(dogTeam,lg.awayAbbr);
       if(!((fMatchHome&&dMatchAway)||(fMatchAway&&dMatchHome))) continue;
-      // Figure out fav score and dog score
       let favScore, dogScore;
       if(fMatchHome){favScore=parseInt(lg.homeScore)||0;dogScore=parseInt(lg.awayScore)||0;}
       else{favScore=parseInt(lg.awayScore)||0;dogScore=parseInt(lg.homeScore)||0;}
       const line=parseFloat(pg.line)||0;
-      // Is fav currently covering?
       const favCovering=(favScore-dogScore)>line;
       map[pg.game]={
         favScore,dogScore,favCovering,
@@ -497,19 +541,6 @@ function buildLiveMap(liveGames,pendingGames){
     }
   });
   return map;
-}
-
-// Simple client-side team matching (first word + containment)
-function normClient(s){return (s||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();}
-function teamMatchClient(a,b){
-  if(!a||!b) return false;
-  const na=normClient(a), nb=normClient(b);
-  if(!na||!nb) return false;
-  if(na===nb) return true;
-  if(na.indexOf(nb)>=0||nb.indexOf(na)>=0) return true;
-  const fa=na.split(' ')[0], fb=nb.split(' ')[0];
-  if(fa.length>=2&&fa===fb) return true;
-  return false;
 }
 
 function getPeriodData(b){
@@ -550,13 +581,9 @@ function renderPeriodCard(p){
   document.getElementById('periodBalanceLabel').textContent=abs<0.01?'All Square':`${p.owes} owes ${p.owed}`;
   document.getElementById('periodBalanceVal').textContent='$'+abs.toFixed(2);
   document.getElementById('periodBalanceVal').style.color=abs<0.01?'var(--accent)':(p.unpaidBalance>0?'var(--accent2)':'var(--sam)');
-  // Period age
   const ageEl=document.getElementById('periodAge');
-  if(p.periodStart&&p.daysSinceStart>=0){
-    ageEl.textContent=`since ${p.periodStart} · ${p.daysSinceStart}d`;
-  } else {
-    ageEl.textContent='';
-  }
+  if(p.periodStart&&p.daysSinceStart>=0){ageEl.textContent=`since ${p.periodStart} · ${p.daysSinceStart}d`;}
+  else{ageEl.textContent='';}
 }
 
 function renderBalance(b){
@@ -574,18 +601,15 @@ function renderGames(games,liveMap){
   const list=document.getElementById('gamesList');
   if(!games||!games.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">🎲</div><div class="empty-text">No recent games found</div></div>';return;}
 
-  // Split into pending and completed, sort each group separately
   const pending=games.filter(g=>!g.finalScore);
   const completed=games.filter(g=>!!g.finalScore);
 
-  // Pending: soonest first (by commenceTime, fall back to date string)
   pending.sort((a,b)=>{
     const at=a.commenceTime||a.date||'';
     const bt=b.commenceTime||b.date||'';
     return at<bt?-1:at>bt?1:0;
   });
 
-  // Completed: newest first (by commenceTime, fall back to date string)
   completed.sort((a,b)=>{
     const at=a.commenceTime||a.date||'';
     const bt=b.commenceTime||b.date||'';
@@ -595,25 +619,33 @@ function renderGames(games,liveMap){
   const sorted=[...pending,...completed];
 
   list.innerHTML=sorted.map(g=>{
-    const hasFinal=!!g.finalScore,isPending=!hasFinal,cls=isPending?'pending':'complete';
+    const hasFinal=!!g.finalScore,isPending=!hasFinal;
+    const isLive=isPending&&!!liveMap[g.game];
+    // live-active gets a special card style; pending without live data gets pending style
+    const cls=isLive?'pending live-active':isPending?'pending':'complete';
     const favPicker=g.favorite||'—',dogPicker=favPicker==='Matt'?'Sam':'Matt';
     const parts=(g.game||'').split(' vs ');
     const favTeam=parts[0]?parts[0].trim():'—',dogTeam=parts[1]?parts[1].trim():'—';
     const favNameClass=favPicker==='Matt'?'matt':'sam',dogNameClass=dogPicker==='Matt'?'matt':'sam';
     const lineStr=g.line?`-${g.line}`:'',dogLineStr=g.line?`+${g.line}`:'';
-    const badge=isPending?'<span class="game-badge badge-pending">Pending</span>':`<span class="game-badge badge-win">${g.winner||'?'} ✓</span>`;
+
+    // Badge: LIVE (pulsing red) > Pending (yellow) > Winner chip
+    const badge=isLive
+      ?'<span class="game-badge badge-live">● LIVE</span>'
+      :isPending
+        ?'<span class="game-badge badge-pending">Pending</span>'
+        :`<span class="game-badge badge-win">${g.winner||'?'} ✓</span>`;
+
     const winnerChip=hasFinal&&g.winner?`<span class="winner-chip ${g.winner.toLowerCase()}">${g.winner}</span>`:'';
     const scoreHtml=hasFinal?`<div class="game-score">📊 ${g.finalScore}${winnerChip}${g.paidOut?' <span style="color:var(--muted);font-size:11px">· 💵 Paid</span>':''}</div>`:'';
     const timeStr=g.time?` · ${g.time} CT`:'';
 
-    // Live score inline — only for pending games
     let liveHtml='';
     let favRowExtra='',dogRowExtra='';
-    if(isPending&&liveMap[g.game]){
+    if(isLive){
       const lv=liveMap[g.game];
-      const favPickerCovering=lv.favCovering;
-      favRowExtra=favPickerCovering?' live-covering':' live-losing';
-      dogRowExtra=favPickerCovering?' live-losing':' live-covering';
+      favRowExtra=lv.favCovering?' live-covering':' live-losing';
+      dogRowExtra=lv.favCovering?' live-losing':' live-covering';
       liveHtml=`<div class="live-inline">
         <span class="live-inline-badge">● LIVE</span>
         <span class="live-inline-score">${lv.scoreDisplay}</span>

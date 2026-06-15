@@ -277,9 +277,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
             <option value="NCAA F">NCAA F</option>
             <option value="NHL">NHL</option>
             <option value="MLB">MLB</option>
-            <option value="PGA Tour">PGA Tour</option>
-            <option value="Golf Majors">Golf Majors</option>
-            <option value="Other">Other</option>
+            <option value="World Cup">World Cup</option>
+            <option value="Champions League">Champions League</option>
+            <option value="MLS">MLS</option>
           </select>
         </div>
         <div class="form-group">
@@ -639,6 +639,8 @@ function renderGames(games,liveMap){
     const winnerChip=hasFinal&&g.winner?`<span class="winner-chip ${g.winner.toLowerCase()}">${g.winner}</span>`:'';
     const scoreHtml=hasFinal?`<div class="game-score">📊 ${g.finalScore}${winnerChip}${g.paidOut?' <span style="color:var(--muted);font-size:11px">· 💵 Paid</span>':''}</div>`:'';
     const timeStr=g.time?` · ${g.time} CT`:'';
+    const ctDisplay=g.commenceTime?utcToCentralDisplay(g.commenceTime):'';
+    const timeDisplay=ctDisplay?` · ${ctDisplay} CT`:timeStr;
 
     let liveHtml='';
     let favRowExtra='',dogRowExtra='';
@@ -660,7 +662,7 @@ function renderGames(games,liveMap){
         <div class="picker-row dog-row${dogRowExtra}"><span class="picker-name ${dogNameClass}">${dogPicker}</span><span class="picker-arrow">→</span><span class="picker-team">${dogTeam}</span><span class="picker-line">${dogLineStr} (dog)</span></div>
       </div>
       ${liveHtml}
-      <div class="game-meta"><span>${g.date}${timeStr}</span><span>${g.league}</span>${g.amtWon?`<span>$${g.amtWon}</span>`:''}</div>
+      <div class="game-meta"><span>${g.date}${timeDisplay}</span><span>${g.league}</span>${g.amtWon?`<span>$${g.amtWon}</span>`:''}</div>
       ${scoreHtml}
     </div>`;
   }).join('');
@@ -777,7 +779,6 @@ async function loadStats(){
 // ADD GAME
 async function fetchGames(){
   const league=document.getElementById('addLeague').value;
-  if(league==='Other'){document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Enter game details manually below</div>';document.getElementById('marketGroup').style.display='none';return;}
   document.getElementById('gamePickerList').innerHTML='<div class="picker-loading"><span class="spinner"></span> Loading all upcoming '+league+' games...</div>';
   document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
   try{
@@ -790,7 +791,7 @@ async function fetchGames(){
       <div class="game-option" id="gopt-${i}" onclick="selectGame(${i})">
         <div class="go-date">${g.displayDate||g.gameDate}</div>
         <div class="go-label">${g.awayTeam} @ ${g.homeTeam}</div>
-        ${g.options&&g.options[0]?`<div class="go-odds">${g.options[0].oddsStr||''}</div>`:''}
+        ${g.options&&g.options[0]?`<div class="go-odds">${g.options[0].oddsStr||''} <span style="color:var(--accent);font-weight:700;font-size:10px">● closest to 50/50</span></div>`:''}
         ${g.startingSoon?`<div class="go-soon">⚠️ Starting within 30 min — lock it in!</div>`:''}
       </div>`).join('');
   }catch(e){document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Error loading games</div>';}
@@ -801,7 +802,7 @@ function selectGame(idx){
   const el=document.getElementById('gopt-'+idx);if(el)el.classList.add('selected');
   const g=_allGames[idx];if(!g)return;
   document.getElementById('marketGroup').style.display='block';
-  document.getElementById('marketPills').innerHTML=(g.options||[]).map((o,i)=>`<div class="market-pill ${o.type===g.bestType?'selected':''}" id="mpill-${i}" onclick="selectMarket(${idx},${i})">${o.type==='spread'?'Spread':o.type==='moneyline'?'Moneyline':'O/U'}</div>`).join('');
+  document.getElementById('marketPills').innerHTML=(g.options||[]).map((o,i)=>`<div class="market-pill ${o.type===g.bestType?'selected':''}" id="mpill-${i}" onclick="selectMarket(${idx},${i})">${o.type==='spread'?'Spread':o.type==='moneyline'?'Moneyline':'O/U'}${o.type===g.bestType?' · 50/50':''}</div>`).join('');
   selectMarket(idx,(g.options||[]).findIndex(o=>o.type===g.bestType));
 }
 
@@ -815,14 +816,35 @@ function selectMarket(gameIdx,mktIdx){
   if(o.favOdds!==null&&o.favOdds!==undefined){const fo=o.favOdds,dgo=o.dogOdds;const disp=dgo!==null&&dgo!==undefined&&Math.abs(Math.abs(dgo)-110)<Math.abs(Math.abs(fo)-110)?dgo:fo;document.getElementById('addOdds').value=(disp>0?'+':'')+disp;}
 }
 
+// Convert UTC commenceTime to Central Time date string (yyyy-MM-dd)
+function utcToCentralDate(isoStr) {
+  if (!isoStr) return null;
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }); // "2026-03-26"
+  } catch(e) { return null; }
+}
+
+// Format commenceTime to CT display string
+function utcToCentralDisplay(isoStr) {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+  } catch(e) { return ''; }
+}
+
 async function submitAddGame(){
   const t1=document.getElementById('addTeam1').value.trim(),t2=document.getElementById('addTeam2').value.trim();
   if(!t1||!t2){showToast('Enter both team names','error');return;}
   const g=_allGames[_selectedGameIdx]||{};
-  const d={date:g.gameDate||new Date().toISOString().split('T')[0],league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:document.getElementById('addOdds').value,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null};
+  // FIX: Derive date from commenceTime in Central Time when available
+  // This ensures the Date column and Actual Start Time are always consistent
+  const gameDate = g.commenceTime ? utcToCentralDate(g.commenceTime) : (g.gameDate || new Date().toISOString().split('T')[0]);
+  const d={date:gameDate,league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:document.getElementById('addOdds').value,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null};
   try{
     const r=await apiPost('addGame',d);
-    if(r&&r.duplicate){showToast('⚠️ Already in sheet at row '+r.row,'error');return;}
+    if(r&&r.duplicate){showToast('⚠️ Duplicate: '+(r.reason||'Already in sheet')+' (row '+r.row+')','error');return;}
     showToast('✅ Added!','success');
     document.getElementById('addTeam1').value='';document.getElementById('addTeam2').value='';
     document.getElementById('addLine').value='';document.getElementById('addOdds').value='';

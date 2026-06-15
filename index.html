@@ -279,7 +279,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
             <option value="MLB">MLB</option>
             <option value="World Cup">World Cup</option>
             <option value="Champions League">Champions League</option>
-            <option value="MLS">MLS</option>
           </select>
         </div>
         <div class="form-group">
@@ -882,8 +881,13 @@ async function previewWinner(){
   try{
     const r=await apiPost('resolveScore',{scoreStr:score,favorite:fav,line,favoritePicker:fav});
     if(!r){prev.style.display='none';return;}
-    prev.style.display='block';const isMatt=r.winner==='Matt';
-    prev.innerHTML=`<div class="winner-tag ${isMatt?'matt':'sam'}">${r.covered?'🏆 Covered':'💨 Missed'} by ${Math.abs(r.margin-r.line).toFixed(1)} → <strong>${r.winner} wins</strong></div>`;
+    prev.style.display='block';
+    if(r.isPush){
+      prev.innerHTML=`<div class="winner-tag" style="background:rgba(255,214,10,0.12);color:var(--accent3);border:1px solid rgba(255,214,10,0.3)">🤝 Push — landed exactly on the line → <strong>Split (no money)</strong></div>`;
+    } else {
+      const isMatt=r.winner==='Matt';
+      prev.innerHTML=`<div class="winner-tag ${isMatt?'matt':'sam'}">${r.covered?'🏆 Covered':'💨 Missed'} by ${Math.abs(r.margin-r.line).toFixed(1)} → <strong>${r.winner} wins</strong></div>`;
+    }
     document.getElementById('editWinner').value=r.winner;
   }catch(e){document.getElementById('winnerPreview').style.display='none';}
 }

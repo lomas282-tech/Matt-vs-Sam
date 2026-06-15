@@ -293,10 +293,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
           <div class="form-group" style="margin:0"><label class="form-label">Fav (Team 1)</label><input type="text" class="form-input" id="addTeam1" placeholder="Favorite"></div>
           <div class="form-group" style="margin:0"><label class="form-label">Dog (Team 2)</label><input type="text" class="form-input" id="addTeam2" placeholder="Underdog"></div>
         </div>
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="form-group" style="margin:0"><label class="form-label">Fav Odds</label><input type="text" class="form-input" id="addOdds" placeholder="-110" style="color:var(--matt)"></div>
+          <div class="form-group" style="margin:0"><label class="form-label">Dog Odds</label><input type="text" class="form-input" id="addDogOdds" placeholder="+110" style="color:var(--sam)" readonly></div>
+        </div>
         <div class="form-row-3" style="margin-bottom:16px">
           <div class="form-group" style="margin:0"><label class="form-label">Line</label><input type="text" class="form-input" id="addLine" placeholder="3.5"></div>
-          <div class="form-group" style="margin:0"><label class="form-label">Odds</label><input type="text" class="form-input" id="addOdds" placeholder="-110"></div>
           <div class="form-group" style="margin:0"><label class="form-label">Fav Picks</label><select class="form-select" id="addFavorite"><option value="Matt">Matt</option><option value="Sam">Sam</option></select></div>
+          <div></div>
         </div>
         <button class="btn btn-primary" onclick="submitAddGame()">✚ Add Bet</button>
       </div>
@@ -813,7 +817,13 @@ function selectMarket(gameIdx,mktIdx){
   if(o.favorite){document.getElementById('addTeam1').value=g.homeTeam===o.favorite?g.sheetHome:g.sheetAway;document.getElementById('addTeam2').value=g.homeTeam===o.favorite?g.sheetAway:g.sheetHome;}
   else{document.getElementById('addTeam1').value=g.sheetAway||'';document.getElementById('addTeam2').value=g.sheetHome||'';}
   document.getElementById('addLine').value=o.line!==null&&o.line!==undefined?o.line:'';
-  if(o.favOdds!==null&&o.favOdds!==undefined){const fo=o.favOdds,dgo=o.dogOdds;const disp=dgo!==null&&dgo!==undefined&&Math.abs(Math.abs(dgo)-110)<Math.abs(Math.abs(fo)-110)?dgo:fo;document.getElementById('addOdds').value=(disp>0?'+':'')+disp;}
+  // Show both fav and dog odds
+  if(o.favOdds!==null&&o.favOdds!==undefined){
+    document.getElementById('addOdds').value=(o.favOdds>0?'+':'')+o.favOdds;
+  } else { document.getElementById('addOdds').value=''; }
+  if(o.dogOdds!==null&&o.dogOdds!==undefined){
+    document.getElementById('addDogOdds').value=(o.dogOdds>0?'+':'')+o.dogOdds;
+  } else { document.getElementById('addDogOdds').value=''; }
 }
 
 // Convert UTC commenceTime to Central Time date string (yyyy-MM-dd)
@@ -847,7 +857,7 @@ async function submitAddGame(){
     if(r&&r.duplicate){showToast('⚠️ Duplicate: '+(r.reason||'Already in sheet')+' (row '+r.row+')','error');return;}
     showToast('✅ Added!','success');
     document.getElementById('addTeam1').value='';document.getElementById('addTeam2').value='';
-    document.getElementById('addLine').value='';document.getElementById('addOdds').value='';
+    document.getElementById('addLine').value='';document.getElementById('addOdds').value='';document.getElementById('addDogOdds').value='';
     document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Select a league to load upcoming games</div>';
     document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
   }catch(e){showToast('Error: '+e.message,'error');}

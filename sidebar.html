@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+*{box-sizing:border-box;font-family:Arial,sans-serif;font-size:13px}
+body{margin:0;padding:10px;background:#f8f9fa}
+h2{margin:0 0 10px;font-size:15px;color:#1a73e8}
+.section{background:white;border-radius:8px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+label{display:block;font-weight:bold;margin:6px 0 2px;color:#444;font-size:12px}
+input,select{width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px}
+.row2{display:flex;gap:6px}.row2>div{flex:1}
+button{width:100%;padding:8px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer;margin-top:6px}
+.btn-blue{background:#1a73e8;color:white}
+.btn-green{background:#34a853;color:white}
+.btn-gray{background:#eee;color:#333}
+.btn-sm{width:auto;padding:4px 10px;font-size:12px;font-weight:normal;margin-top:0}
+.info-box{background:#e8f5e9;border:1px solid #81c784;border-radius:4px;padding:6px 8px;margin-top:6px;font-size:12px;color:#2e7d32}
+.err-box{background:#fce4ec;border:1px solid #e57373;border-radius:4px;padding:6px 8px;margin-top:6px;font-size:12px;color:#c62828}
+.odds-picker{margin-top:8px}
+.odds-picker .pick-label{font-size:10px;font-weight:bold;text-transform:uppercase;color:#888;letter-spacing:.5px;margin-bottom:5px}
+.market-btn{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1.5px solid #ddd;border-radius:6px;margin-bottom:5px;cursor:pointer;background:white;transition:all .15s}
+.market-btn:hover{border-color:#1a73e8;background:#f0f6ff}
+.market-btn.selected{border-color:#1a73e8;background:#e8f0fe}
+.market-btn .mkt-name{font-weight:bold;font-size:12px;color:#333;min-width:70px}
+.market-btn .mkt-odds{font-size:11px;color:#555;flex:1}
+.best-badge{background:#1a73e8;color:white;font-size:9px;border-radius:3px;padding:1px 5px;white-space:nowrap}
+.game-item{border:1px solid #e0e0e0;border-radius:6px;padding:8px;margin-bottom:6px;font-size:12px}
+.game-item .gtitle{font-weight:bold;color:#333}
+.game-item .meta{color:#888;font-size:11px;margin:2px 0}
+.pending{border-left:3px solid #fbbc04}
+.complete{border-left:3px solid #34a853}
+.tab-bar{display:flex;margin-bottom:10px;gap:4px}
+.tab{flex:1;padding:7px;text-align:center;border-radius:6px;border:1px solid #ddd;background:white;cursor:pointer;font-size:12px;font-weight:bold;color:#666}
+.tab.active{background:#1a73e8;color:white;border-color:#1a73e8}
+.spinner{text-align:center;padding:10px;color:#888;font-size:12px}
+.status{margin-top:8px;font-size:12px;padding:6px 8px;border-radius:4px;display:none}
+.status.ok{background:#e8f5e9;color:#2e7d32;display:block}
+.status.err{background:#fce4ec;color:#c62828;display:block}
+.wp{font-size:13px;font-weight:bold;padding:8px;border-radius:6px;margin-top:8px;text-align:center}
+.wp.win{background:#e8f5e9;color:#2e7d32}
+.wp.lose{background:#fce4ec;color:#c62828}
+</style>
+</head>
+<body>
+<h2>&#x1F3C8; Sam vs Matt Tracker</h2>
+
+<div class="tab-bar">
+  <div class="tab active" id="tba" onclick="showTab('add')">&#x2795; Add</div>
+  <div class="tab" id="tbu" onclick="showTab('update')">&#x270F;&#xFE0F; Update</div>
+  <div class="tab" id="tbauto" onclick="showTab('auto')">&#x1F504; Auto</div>
+</div>
+
+<!-- ADD TAB -->
+<div id="tab-add">
+  <div class="section">
+    <label>Date</label>
+    <input type="date" id="date" onchange="loadGames()">
+    <label>League</label>
+    <select id="league" onchange="loadGames()">
+      <option>NFL</option>
+      <option>NCAA F</option>
+      <option selected>NCAA MBB</option>
+      <option>NBA</option>
+      <option>MLB</option>
+      <option>NHL</option>
+      <option>World Cup</option>
+      <option>Champions League</option>
+    </select>
+    <label>Pick a game</label>
+    <select id="gameSelect" onchange="onGamePicked()">
+      <option value="">-- Select league + date first --</option>
+    </select>
+    <div id="gload"></div>
+
+    <div id="mkt-picker" style="display:none">
+      <div class="odds-picker">
+        <div class="pick-label">Select market <span style="font-weight:normal;color:#aaa">(auto = closest to -110 / 50-50)</span></div>
+        <div id="mkt-options"></div>
+      </div>
+    </div>
+
+    <div class="row2" style="margin-top:6px">
+      <div><label>Team 1 (Fav)</label><input type="text" id="team1" placeholder="auto-filled"></div>
+      <div><label>Team 2 (Dog)</label><input type="text" id="team2" placeholder="auto-filled"></div>
+    </div>
+    <div class="row2" style="margin-top:4px">
+      <div><label>Fav Odds</label><input type="text" id="oddsVal" placeholder="e.g. -110"></div>
+      <div><label>Dog Odds</label><input type="text" id="dogOddsVal" placeholder="e.g. +110" readonly></div>
+    </div>
+    <div class="row2" style="margin-top:4px">
+      <div><label>Line</label><input type="text" id="line" placeholder="e.g. 3.5"></div>
+      <div><label>Fav picks</label><select id="favorite"><option value="Matt">Matt</option><option value="Sam">Sam</option></select></div>
+    </div>
+  </div>
+  <button class="btn-blue" onclick="addGame()">&#x2705; Add to Sheet</button>
+  <div id="add-st" class="status"></div>
+</div>
+
+<!-- UPDATE TAB -->
+<div id="tab-update" style="display:none">
+  <div class="section">
+    <div id="glist"><div class="spinner">Loading...</div></div>
+  </div>
+  <div id="epanel" class="section" style="display:none">
+    <div style="font-weight:bold;margin-bottom:4px;color:#1a73e8" id="etitle"></div>
+    <div style="font-size:11px;color:#888;margin-bottom:8px" id="emeta"></div>
+    <label>Final Score</label>
+    <input type="text" id="escore" placeholder="e.g. MSU 87-61" oninput="prevWinner()">
+    <div id="eprev"></div>
+    <div class="row2" style="margin-top:8px">
+      <div><label>Winner</label><select id="ewinner"><option value="">-- TBD --</option><option value="Matt">Matt</option><option value="Sam">Sam</option></select></div>
+      <div><label>Amt Won</label><input type="number" id="eamt" placeholder="e.g. 5"></div>
+    </div>
+    <label style="margin-top:8px;display:flex;align-items:center;gap:6px;font-weight:normal">
+      <input type="checkbox" id="epaid" style="width:auto"> Paid out
+    </label>
+    <input type="hidden" id="erow">
+    <input type="hidden" id="eline">
+    <input type="hidden" id="efav">
+    <input type="hidden" id="epicker">
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn-green" onclick="saveUpdate()" style="flex:2">&#x1F4BE; Save</button>
+      <button class="btn-gray" onclick="closeEdit()" style="flex:1">Cancel</button>
+    </div>
+    <div id="edit-st" class="status"></div>
+  </div>
+</div>
+
+<!-- AUTO UPDATE TAB -->
+<div id="tab-auto" style="display:none">
+  <div class="section">
+    <div style="font-size:12px;color:#666;margin-bottom:10px">
+      Fetches final scores from ESPN and updates all pending games automatically.
+    </div>
+    <button class="btn-blue" onclick="runAutoUpdate()">&#x1F504; Fetch &amp; Update All Scores</button>
+    <div id="auto-st" class="status"></div>
+    <div id="auto-results" style="margin-top:10px;font-size:12px"></div>
+  </div>
+</div>
+
+<script>
+document.getElementById('date').valueAsDate = new Date();
+var _allGames = [];
+loadGames();
+
+function showTab(t) {
+  document.getElementById('tab-add').style.display    = t==='add'    ?'block':'none';
+  document.getElementById('tab-update').style.display = t==='update' ?'block':'none';
+  document.getElementById('tab-auto').style.display   = t==='auto'   ?'block':'none';
+  document.getElementById('tba').className='tab'+(t==='add'?' active':'');
+  document.getElementById('tbu').className='tab'+(t==='update'?' active':'');
+  document.getElementById('tbauto').className='tab'+(t==='auto'?' active':'');
+  if(t==='update') loadRecent();
+}
+
+function loadGames() {
+  var date=document.getElementById('date').value, league=document.getElementById('league').value;
+  if(!date) return;
+  var sel=document.getElementById('gameSelect');
+  sel.innerHTML='<option value="">Loading...</option>';
+  document.getElementById('gload').innerHTML='';
+  document.getElementById('mkt-picker').style.display='none';
+  _allGames=[];
+
+  google.script.run
+    .withSuccessHandler(function(gs){
+      _allGames=gs||[];
+      sel.innerHTML='<option value="">-- Select a game --</option>';
+      if(!_allGames.length){sel.innerHTML+='<option value="">No games found</option>';return;}
+      if(_allGames[0]&&_allGames[0].error){sel.innerHTML+='<option value="">API error</option>';return;}
+      _allGames.forEach(function(g,i){
+        var o=document.createElement('option');
+        o.value=i;
+        o.textContent=g.label;
+        sel.appendChild(o);
+      });
+      document.getElementById('gload').innerHTML='<div class="info-box">'+_allGames.length+' game'+(_allGames.length!==1?'s':'')+' found</div>';
+    })
+    .withFailureHandler(function(){sel.innerHTML='<option value="">Error</option>';})
+    .getGamesForDate(league, date);
+}
+
+function onGamePicked() {
+  var idx=parseInt(document.getElementById('gameSelect').value);
+  var picker=document.getElementById('mkt-picker');
+  if(isNaN(idx)||!_allGames[idx]){picker.style.display='none';return;}
+  var g=_allGames[idx];
+  var opts=g.options||[];
+  var html='';
+  opts.forEach(function(o,i){
+    var isBest=o.type===g.bestType;
+    var mktLabel=o.type==='spread'?'Spread':o.type==='moneyline'?'Moneyline':'O/U Total';
+    html+='<div class="market-btn'+(isBest?' selected':'')+'" id="mbtn-'+i+'" onclick="selectMkt('+idx+','+i+')">';
+    html+='<div class="mkt-name">'+mktLabel+(isBest?' <span class="best-badge">&#x2022; 50/50</span>':'')+'</div>';
+    html+='<div class="mkt-odds">'+o.oddsStr+'</div></div>';
+  });
+  document.getElementById('mkt-options').innerHTML=html;
+  picker.style.display='block';
+  applyOption(g, g.options.findIndex(function(o){return o.type===g.bestType;}));
+}
+
+function selectMkt(gameIdx, optIdx) {
+  document.querySelectorAll('.market-btn').forEach(function(b){b.classList.remove('selected');});
+  document.getElementById('mbtn-'+optIdx).classList.add('selected');
+  applyOption(_allGames[gameIdx], optIdx);
+}
+
+function applyOption(g, optIdx) {
+  var opts=g.options||[];
+  if(optIdx<0||optIdx>=opts.length) return;
+  var o=opts[optIdx];
+  if(o.favorite){
+    document.getElementById('team1').value=g.homeTeam===o.favorite?g.sheetHome:g.sheetAway;
+    document.getElementById('team2').value=g.homeTeam===o.favorite?g.sheetAway:g.sheetHome;
+  } else {
+    document.getElementById('team1').value=g.sheetAway;
+    document.getElementById('team2').value=g.sheetHome;
+  }
+  document.getElementById('line').value=o.line!==null&&o.line!==undefined?o.line:(o.type==='moneyline'?0:'');
+  // Show both fav and dog odds
+  if(o.favOdds!==null&&o.favOdds!==undefined){
+    document.getElementById('oddsVal').value=fmt(o.favOdds);
+  } else { document.getElementById('oddsVal').value=''; }
+  if(o.dogOdds!==null&&o.dogOdds!==undefined){
+    document.getElementById('dogOddsVal').value=fmt(o.dogOdds);
+  } else { document.getElementById('dogOddsVal').value=''; }
+  if(g.gameDate) document.getElementById('date').value=g.gameDate;
+}
+
+function fmt(n){return n===null||n===undefined?'':(n>0?'+'+n:''+n);}
+
+function addGame(){
+  var t1=document.getElementById('team1').value.trim(),t2=document.getElementById('team2').value.trim();
+  if(!t1||!t2){showSt('add-st','Enter both team names.',false);return;}
+  var idx=parseInt(document.getElementById('gameSelect').value);
+  var g = _allGames[idx] || {};
+  var ct = g.commenceTime || null;
+  var d={
+    date: document.getElementById('date').value,
+    league: document.getElementById('league').value,
+    game: t1+' vs '+t2,
+    line: document.getElementById('line').value,
+    odds: document.getElementById('oddsVal').value,
+    favorite: document.getElementById('favorite').value,
+    finalScore:'',winner:'',amtWon:'',paidOut:false,
+    commenceTime: ct
+  };
+  showSt('add-st','Adding...',true);
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r&&r.duplicate){
+        showSt('add-st','⚠️ Duplicate: '+r.reason+' (row '+r.row+')',false);
+        return;
+      }
+      showSt('add-st','✅ Added row '+r.row+'!',true);
+      document.getElementById('team1').value='';
+      document.getElementById('team2').value='';
+      document.getElementById('line').value='';
+      document.getElementById('oddsVal').value='';
+      document.getElementById('dogOddsVal').value='';
+      document.getElementById('gameSelect').selectedIndex=0;
+      document.getElementById('mkt-picker').style.display='none';
+      document.getElementById('gload').innerHTML='';
+    })
+    .withFailureHandler(function(e){showSt('add-st','Error: '+e,false);})
+    .addGame(d);
+}
+
+function loadRecent(){
+  document.getElementById('glist').innerHTML='<div class="spinner">Loading...</div>';
+  google.script.run
+    .withSuccessHandler(function(gs){
+      if(!gs||!gs.length){document.getElementById('glist').innerHTML='<div class="spinner">No games.</div>';return;}
+      var h='';
+      gs.forEach(function(g){
+        var cls=g.finalScore?'complete':'pending';
+        var st=g.finalScore?('🏆 '+(g.winner||'?')+' | '+g.finalScore+(g.paidOut?' · 💵':'')):'⏳ Pending';
+        var timeInfo = g.time ? ' · '+g.time+' CT' : '';
+        h+='<div class="game-item '+cls+'"><div class="gtitle">'+g.game+'</div>';
+        h+='<div class="meta">'+g.date+timeInfo+' · '+g.league+' · '+g.line+(g.odds?' ('+g.odds+')':'')+' · Fav: '+g.favorite+'</div>';
+        h+='<div class="meta">'+st+'</div>';
+        h+='<button class="btn-blue btn-sm" style="margin-top:5px" onclick=\'openEdit('+JSON.stringify(g).replace(/\'/g,"\\'")+')\'>'+
+          (g.finalScore?'Edit':'✏️ Enter Result')+'</button></div>';
+      });
+      document.getElementById('glist').innerHTML=h;
+    })
+    .withFailureHandler(function(e){document.getElementById('glist').innerHTML='<div class="err-box">'+e+'</div>';})
+    .getRecentGames();
+}
+
+function openEdit(g){
+  document.getElementById('epanel').style.display='block';
+  document.getElementById('etitle').textContent=g.game;
+  var timeInfo = g.time ? ' · '+g.time+' CT' : '';
+  document.getElementById('emeta').textContent=g.date+timeInfo+' · '+g.league+' · Line: '+g.line+(g.odds?' ('+g.odds+')':'')+' · '+g.favorite+' is fav';
+  document.getElementById('escore').value=g.finalScore||'';
+  document.getElementById('ewinner').value=g.winner||'';
+  document.getElementById('eamt').value=g.amtWon||'';
+  document.getElementById('epaid').checked=g.paidOut;
+  document.getElementById('erow').value=g.row;
+  document.getElementById('eline').value=g.line;
+  document.getElementById('efav').value=g.favorite;
+  document.getElementById('epicker').value=g.favorite;
+  document.getElementById('eprev').innerHTML='';
+  document.getElementById('edit-st').className='status';
+  document.getElementById('epanel').scrollIntoView({behavior:'smooth'});
+  if(g.finalScore) prevWinner();
+}
+
+function closeEdit(){document.getElementById('epanel').style.display='none';}
+
+function prevWinner(){
+  var score=document.getElementById('escore').value.trim();
+  var line=parseFloat(document.getElementById('eline').value);
+  var fav=document.getElementById('efav').value,picker=document.getElementById('epicker').value;
+  var el=document.getElementById('eprev');
+  if(!score||!line){el.innerHTML='';return;}
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r||r.error){el.innerHTML='';return;}
+      if(r.isPush){
+        el.innerHTML='<div class="wp" style="background:#fff3cd;color:#856404">🤝 Push — landed on the line → Split ($0)</div>';
+      } else {
+        el.innerHTML='<div class="wp '+(r.covered?'win':'lose')+'">'+(r.covered?'🏆 Covered by '+(r.margin-r.line).toFixed(1):'💨 Missed by '+(r.line-r.margin).toFixed(1))+' → '+r.winner+' wins $'+(document.getElementById('eamt').value||'?')+'</div>';
+      }
+      document.getElementById('ewinner').value=r.winner;
+    })
+    .withFailureHandler(function(){el.innerHTML='';})
+    .resolveScore({scoreStr:score,favorite:fav,line:line,favoritePicker:picker});
+}
+
+function saveUpdate(){
+  var d={
+    row:document.getElementById('erow').value,
+    finalScore:document.getElementById('escore').value,
+    winner:document.getElementById('ewinner').value,
+    amtWon:document.getElementById('eamt').value,
+    paidOut:document.getElementById('epaid').checked
+  };
+  showSt('edit-st','Saving...',true);
+  google.script.run
+    .withSuccessHandler(function(){
+      showSt('edit-st','✅ Saved!',true);
+      setTimeout(function(){closeEdit();loadRecent();},700);
+    })
+    .withFailureHandler(function(e){showSt('edit-st','Error: '+e,false);})
+    .updateGame(d);
+}
+
+function runAutoUpdate(){
+  var btn=document.querySelector('#tab-auto .btn-blue');
+  btn.disabled=true;btn.textContent='Fetching...';
+  document.getElementById('auto-results').innerHTML='';
+  showSt('auto-st','Checking ESPN for final scores...',true);
+  google.script.run
+    .withSuccessHandler(function(r){
+      btn.disabled=false;btn.textContent='🔄 Fetch & Update All Scores';
+      if(!r){showSt('auto-st','Error.',false);return;}
+      showSt('auto-st','✅ Updated '+r.updated+' game'+(r.updated!==1?'s':'')+'. '+r.pending+' total pending.',true);
+      var html='';
+      if(r.errors&&r.errors.length) html+='<div style="color:#c62828;margin-top:4px">'+r.errors.join('<br>')+'</div>';
+      if(r.updated===0) html+='<div style="color:#888;margin-top:4px">No completed games found yet.</div>';
+      document.getElementById('auto-results').innerHTML=html;
+    })
+    .withFailureHandler(function(e){
+      btn.disabled=false;btn.textContent='🔄 Fetch & Update All Scores';
+      showSt('auto-st','Error: '+e,false);
+    })
+    .autoUpdateScores();
+}
+
+function showSt(id,msg,ok){
+  var el=document.getElementById(id);
+  el.textContent=msg;
+  el.className='status '+(ok?'ok':'err');
+}
+</script>
+</body>
+</html>

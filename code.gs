@@ -62,6 +62,33 @@ function normTeam(s) {
     .replace(/\s+/g,' ').trim();
 }
 
+// Normalize international/soccer team names for matching
+function normSoccerTeam(s) {
+  return (s||'').toLowerCase()
+    .replace(/\./g,' ')        // "Dem. Rep." → "Dem  Rep"
+    .replace(/[^a-z0-9\s]/g,'')
+    .replace(/\b(fc|sc|cf)\b/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+
+function soccerTeamsMatch(a, b) {
+  if (!a||!b) return false;
+  var na = normSoccerTeam(a), nb = normSoccerTeam(b);
+  if (!na||!nb) return false;
+  if (na===nb) return true;
+  if (na.indexOf(nb)>=0 || nb.indexOf(na)>=0) return true;
+  // Handle "DR Congo" vs "Congo DR" vs "Democratic Republic of Congo" vs "Dem. Rep. Congo"
+  var wa = na.split(' '), wb = nb.split(' ');
+  // If all words from the shorter name appear in the longer name
+  var sh = wa.length <= wb.length ? wa : wb;
+  var lo = wa.length <= wb.length ? nb : na;
+  if (sh.length >= 1 && sh.every(function(w){ return w.length >= 3 && lo.indexOf(w) >= 0; })) return true;
+  // Check if last word matches (e.g., "Congo" in both)
+  if (wa[wa.length-1] === wb[wb.length-1] && wa[wa.length-1].length >= 4) return true;
+  if (wa[0] === wb[0] && wa[0].length >= 4) return true;
+  return false;
+}
+
 function teamsMatch(a, b) {
   if (!a||!b) return false;
   var na = normTeam(a), nb = normTeam(b);
@@ -535,17 +562,42 @@ function autoUpdateScores() {
   Object.keys(groups).forEach(function(key){
     var grp=groups[key],sportKey=getEspnSportKey(grp.league);
     if (!sportKey) return;
+    var isSoccer = (grp.league === 'World Cup' || grp.league === 'Champions League');
     try {
       var groupParam = (grp.league === 'NCAA MBB' || grp.league === 'NCAA WBB') ? '&groups=50' : '';
-      var url = 'https://site.api.espn.com/apis/site/v2/sports/' + sportKey + '/scoreboard?dates=' + grp.dateStr + '&limit=300' + groupParam;
-      var events=JSON.parse(UrlFetchApp.fetch(url,{muteHttpExceptions:true}).getContentText()).events||[];
+      
+      // For soccer, also search ±1 day to handle timezone differences between CT and event local time
+      var datesToSearch = [grp.dateStr];
+      if (isSoccer) {
+        var d = new Date(grp.dateStr.substring(0,4)+'-'+grp.dateStr.substring(4,6)+'-'+grp.dateStr.substring(6,8)+'T12:00:00Z');
+        var prev = new Date(d.getTime() - 86400000);
+        var next = new Date(d.getTime() + 86400000);
+        var prevStr = Utilities.formatDate(prev, 'UTC', 'yyyyMMdd');
+        var nextStr = Utilities.formatDate(next, 'UTC', 'yyyyMMdd');
+        datesToSearch.push(prevStr, nextStr);
+      }
+      
+      var allEvents = [];
+      for (var di = 0; di < datesToSearch.length; di++) {
+        var url = 'https://site.api.espn.com/apis/site/v2/sports/' + sportKey + '/scoreboard?dates=' + datesToSearch[di] + '&limit=300' + groupParam;
+        var events = JSON.parse(UrlFetchApp.fetch(url, {muteHttpExceptions:true}).getContentText()).events || [];
+        allEvents = allEvents.concat(events);
+      }
+      
+      // Deduplicate events by ID
+      var seenIds = {};
+      var uniqueEvents = [];
+      for (var ui = 0; ui < allEvents.length; ui++) {
+        var evId = allEvents[ui].id || ui;
+        if (!seenIds[evId]) { seenIds[evId] = true; uniqueEvents.push(allEvents[ui]); }
+      }
 
       grp.rows.forEach(function(row){
         var parts=row.game.split(' vs '); if (parts.length<2) return;
         var favTeam=parts[0].trim(), dogTeam=parts[1].trim();
 
-        for (var ei=0;ei<events.length;ei++){
-          var ev=events[ei];
+        for (var ei=0;ei<uniqueEvents.length;ei++){
+          var ev=uniqueEvents[ei];
           if (!((ev.status||{}).type||{}).completed) continue;
           var comp=(ev.competitions||[])[0]; if (!comp) continue;
           var comps=comp.competitors||[]; if (comps.length<2) continue;
@@ -559,10 +611,31 @@ function autoUpdateScores() {
           var hF=(homeC.team||{}).displayName||'',aF=(awayC.team||{}).displayName||'';
           var hA=(homeC.team||{}).abbreviation||'',aA=(awayC.team||{}).abbreviation||'';
 
-          var fH=teamsMatch(favTeam,hS)||teamsMatch(favTeam,hF)||teamsMatch(favTeam,hA);
-          var fA2=teamsMatch(favTeam,aS)||teamsMatch(favTeam,aF)||teamsMatch(favTeam,aA);
-          var dH=teamsMatch(dogTeam,hS)||teamsMatch(dogTeam,hF)||teamsMatch(dogTeam,hA);
-          var dA2=teamsMatch(dogTeam,aS)||teamsMatch(dogTeam,aF)||teamsMatch(dogTeam,aA);
+          var fH, fA2, dH, dA2;
+          if (isSoccer) {
+            // Use soccer-specific matching for international teams
+            fH=soccerTeamsMatch(favTeam,hS)||soccerTeamsMatch(favTeam,hF)||soccerTeamsMatch(favTeam,hA);
+            fA2=soccerTeamsMatch(favTeam,aS)||soccerTeamsMatch(favTeam,aF)||soccerTeamsMatch(favTeam,aA);
+            dH=soccerTeamsMatch(dogTeam,hS)||soccerTeamsMatch(dogTeam,hF)||soccerTeamsMatch(dogTeam,hA);
+            dA2=soccerTeamsMatch(dogTeam,aS)||soccerTeamsMatch(dogTeam,aF)||soccerTeamsMatch(dogTeam,aA);
+            // Fallback: try matching against event name (e.g., "Austria vs Jordan")
+            if (!((fH&&dA2)||(fA2&&dH))) {
+              var evName = (ev.name || '').toLowerCase();
+              var favLower = favTeam.toLowerCase(), dogLower = dogTeam.toLowerCase();
+              if (evName.indexOf(favLower) >= 0 && evName.indexOf(dogLower) >= 0) {
+                // Determine home/away from event name or competitors
+                fH = soccerTeamsMatch(favTeam, hF) || soccerTeamsMatch(favTeam, hS) || evName.indexOf(favLower) > evName.indexOf(dogLower);
+                fA2 = !fH;
+                dH = !fH;
+                dA2 = fH;
+              }
+            }
+          } else {
+            fH=teamsMatch(favTeam,hS)||teamsMatch(favTeam,hF)||teamsMatch(favTeam,hA);
+            fA2=teamsMatch(favTeam,aS)||teamsMatch(favTeam,aF)||teamsMatch(favTeam,aA);
+            dH=teamsMatch(dogTeam,hS)||teamsMatch(dogTeam,hF)||teamsMatch(dogTeam,hA);
+            dA2=teamsMatch(dogTeam,aS)||teamsMatch(dogTeam,aF)||teamsMatch(dogTeam,aA);
+          }
           if (!((fH&&dA2)||(fA2&&dH))) continue;
 
           // For series games: verify this ESPN event matches our commenceTime
@@ -570,8 +643,9 @@ function autoUpdateScores() {
           if (row.commenceTime && ev.date) {
             var evTime = new Date(ev.date).getTime();
             var rowTime = new Date(row.commenceTime).getTime();
-            // Allow up to 2 hour tolerance (games can start slightly early/late)
-            if (Math.abs(evTime - rowTime) > 2 * 60 * 60 * 1000) continue;
+            // Allow up to 4 hour tolerance for soccer (timezone differences + delays)
+            var tolerance = isSoccer ? 4 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
+            if (Math.abs(evTime - rowTime) > tolerance) continue;
           }
 
           var hScore=parseInt(homeC.score)||0,aScore=parseInt(awayC.score)||0;
@@ -590,9 +664,19 @@ function autoUpdateScores() {
             amt = BET_AMOUNT;
           }
 
-          var scoreStr = (favScore >= dogScore)
-            ? (favTeam+' '+favScore+'-'+dogScore)
-            : (dogTeam+' '+dogScore+'-'+favScore);
+          // Score display: team that covered the spread is listed first
+          // For a push, favorite is listed first
+          var scoreStr;
+          if (margin === row.line) {
+            // Push — list favorite first
+            scoreStr = favTeam + ' ' + favScore + '-' + dogScore;
+          } else if (margin > row.line) {
+            // Favorite covered — list favorite first
+            scoreStr = favTeam + ' ' + favScore + '-' + dogScore;
+          } else {
+            // Dog covered — list dog first
+            scoreStr = dogTeam + ' ' + dogScore + '-' + favScore;
+          }
 
           sheet.getRange(row.rowNum,7).setValue(scoreStr);
           sheet.getRange(row.rowNum,8).setValue(winner);

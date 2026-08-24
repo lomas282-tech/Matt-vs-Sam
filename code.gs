@@ -33,7 +33,7 @@ function getSportKey(league) {
     'Golf Majors':'golf_masters_tournament_winner',
     'NCAA WBB': 'basketball/womens-college-basketball',
     'NCAA MH':  'hockey/mens-college-hockey',
-    'World Cup': 'soccer_fifa_world_cup',
+    'Premier League': 'soccer_epl',
     'Champions League': 'soccer_uefa_champions_league'
   };
   return map[league]||null;
@@ -49,7 +49,7 @@ function getEspnSportKey(league) {
     'NHL':'hockey/nhl',
     'PGA Tour':'golf',
     'Golf Majors':'golf',
-    'World Cup':'soccer/fifa.world',
+    'Premier League':'soccer/eng.1',
     'Champions League':'soccer/uefa.champions'
   };
   return map[league]||null;
@@ -129,7 +129,7 @@ function getGamesForLeague(league) {
 
     var isCollege = (league === 'NCAA F' || league === 'NCAA MBB');
     // Soccer leagues use full team names (no abbreviation needed)
-    var isSoccer = (league === 'World Cup' || league === 'Champions League');
+    var isSoccer = (league === 'Premier League' || league === 'Champions League');
     var now = new Date();
     var cutoff = new Date(now.getTime() - 30 * 60 * 1000);
 
@@ -244,18 +244,15 @@ function getGamesForLeague(league) {
           });
         }
         if (ovun) {
-          // Only show .5 totals (skip whole numbers to avoid push ambiguity)
-          var totalFrac2 = Math.round((ovun.line - Math.floor(ovun.line)) * 10) / 10;
-          if (totalFrac2 === 0.5) {
-            options.push({
-              type: 'total',
-              score: Math.min(score110(ovun.overOdds), score110(ovun.underOdds || -110)),
-              label: 'O/U ' + ovun.line,
-              oddsStr: 'Over ' + ovun.line + ' (' + fmt(ovun.overOdds) + ')  |  Under ' + ovun.line + ' (' + fmt(ovun.underOdds) + ')',
-              favorite: null, line: ovun.line,
-              favOdds: ovun.overOdds, dogOdds: ovun.underOdds
-            });
-          }
+          // Show all clean totals (whole numbers + .5). Pushes on whole numbers become splits.
+          options.push({
+            type: 'total',
+            score: Math.min(score110(ovun.overOdds), score110(ovun.underOdds || -110)),
+            label: 'O/U ' + ovun.line,
+            oddsStr: 'Over ' + ovun.line + ' (' + fmt(ovun.overOdds) + ')  |  Under ' + ovun.line + ' (' + fmt(ovun.underOdds) + ')',
+            favorite: null, line: ovun.line,
+            favOdds: ovun.overOdds, dogOdds: ovun.underOdds
+          });
         }
       }
       if (!options.length) continue;
@@ -300,6 +297,20 @@ function resolveScore(d) {
     var nums=d.scoreStr.match(/\d+/g);
     if (!nums||nums.length<2) return null;
     var s1=parseInt(nums[0]),s2=parseInt(nums[1]),line=parseFloat(d.line);
+
+    // ─── O/U TOTAL BETS ─────────────────────────────────────────────────────
+    // If isTotal flag is passed, compare combined score to the line
+    if (d.isTotal) {
+      var totalScored = s1 + s2;
+      if (totalScored === line) {
+        return {winner:'Split',covered:null,margin:totalScored,line:line,isPush:true,isTotal:true};
+      }
+      var overHits = totalScored > line;
+      var winner = overHits ? d.favoritePicker : (d.favoritePicker==='Matt'?'Sam':'Matt');
+      return {winner:winner,covered:overHits,margin:totalScored,line:line,isPush:false,isTotal:true};
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     var favName=(d.favorite||'').toLowerCase();
     var m=d.scoreStr.toLowerCase().match(/^([a-z\s]+?)\s*(\d+)/);
     var favScore,dogScore;
@@ -556,13 +567,13 @@ function autoUpdateScores() {
 
     var key=league+'|'+dateStr;
     if (!groups[key]) groups[key]={league:league,dateStr:dateStr,rows:[]};
-    groups[key].rows.push({rowNum:i+2,game:r[2],line:Math.abs(parseFloat(r[3])||0),favorite:r[5],commenceTime:r[10]?r[10].toString():''});
+    groups[key].rows.push({rowNum:i+2,game:r[2],line:Math.abs(parseFloat(r[3])||0),odds:r[4]||'',favorite:r[5],commenceTime:r[10]?r[10].toString():''});
   }
 
   Object.keys(groups).forEach(function(key){
     var grp=groups[key],sportKey=getEspnSportKey(grp.league);
     if (!sportKey) return;
-    var isSoccer = (grp.league === 'World Cup' || grp.league === 'Champions League');
+    var isSoccer = (grp.league === 'Premier League' || grp.league === 'Champions League');
     try {
       var groupParam = (grp.league === 'NCAA MBB' || grp.league === 'NCAA WBB') ? '&groups=50' : '';
       
@@ -593,6 +604,9 @@ function autoUpdateScores() {
       }
 
       grp.rows.forEach(function(row){
+        // ─── O/U TOTAL BET DETECTION ─────────────────────────────────────────
+        // Detected by "O/U" prefix in the Odds column (e.g., "O/U -110")
+        var isTotal = (row.odds||'').toString().indexOf('O/U') === 0;
         var parts=row.game.split(' vs '); if (parts.length<2) return;
         var favTeam=parts[0].trim(), dogTeam=parts[1].trim();
 
@@ -649,33 +663,45 @@ function autoUpdateScores() {
           }
 
           var hScore=parseInt(homeC.score)||0,aScore=parseInt(awayC.score)||0;
-          var favScore=fH?hScore:aScore, dogScore=fH?aScore:hScore;
-          var margin = favScore - dogScore;
           var favPicker=sheet.getRange(row.rowNum,6).getValue();
+          var winner, amt, scoreStr;
 
-          // Push detection: margin exactly equals line
-          var winner, amt;
-          if (margin === row.line) {
-            winner = 'Split';
-            amt = 0;
+          if (isTotal) {
+            // ─── O/U TOTAL: compare combined score to the line ─────────────────
+            var totalScored = hScore + aScore;
+            scoreStr = favTeam + ' ' + (fH?hScore:aScore) + '-' + (fH?aScore:hScore) + ' (Total: ' + totalScored + ')';
+            if (totalScored === row.line) {
+              winner = 'Split';
+              amt = 0;
+            } else {
+              var overHits = totalScored > row.line;
+              // favPicker = whoever picked Over
+              winner = overHits ? favPicker : (favPicker==='Matt'?'Sam':'Matt');
+              amt = BET_AMOUNT;
+            }
           } else {
-            var favCovered = margin > row.line;
-            winner = favCovered ? favPicker : (favPicker==='Matt'?'Sam':'Matt');
-            amt = BET_AMOUNT;
-          }
+            // ─── SPREAD: original logic ────────────────────────────────────────
+            var favScore=fH?hScore:aScore, dogScore=fH?aScore:hScore;
+            var margin = favScore - dogScore;
 
-          // Score display: team that covered the spread is listed first
-          // For a push, favorite is listed first
-          var scoreStr;
-          if (margin === row.line) {
-            // Push — list favorite first
-            scoreStr = favTeam + ' ' + favScore + '-' + dogScore;
-          } else if (margin > row.line) {
-            // Favorite covered — list favorite first
-            scoreStr = favTeam + ' ' + favScore + '-' + dogScore;
-          } else {
-            // Dog covered — list dog first
-            scoreStr = dogTeam + ' ' + dogScore + '-' + favScore;
+            // Push detection: margin exactly equals line
+            if (margin === row.line) {
+              winner = 'Split';
+              amt = 0;
+            } else {
+              var favCovered = margin > row.line;
+              winner = favCovered ? favPicker : (favPicker==='Matt'?'Sam':'Matt');
+              amt = BET_AMOUNT;
+            }
+
+            // Score display: team that covered the spread is listed first
+            if (margin === row.line) {
+              scoreStr = favTeam + ' ' + favScore + '-' + dogScore;
+            } else if (margin > row.line) {
+              scoreStr = favTeam + ' ' + favScore + '-' + dogScore;
+            } else {
+              scoreStr = dogTeam + ' ' + dogScore + '-' + favScore;
+            }
           }
 
           sheet.getRange(row.rowNum,7).setValue(scoreStr);
@@ -696,7 +722,7 @@ function getLiveScores() {
     'basketball/mens-college-basketball', 'basketball/nba',
     'football/nfl', 'football/college-football',
     'hockey/nhl', 'baseball/mlb', 'golf',
-    'soccer/fifa.world', 'soccer/uefa.champions'
+    'soccer/eng.1', 'soccer/uefa.champions'
   ];
 
   var todayStr = Utilities.formatDate(new Date(), 'America/Chicago', 'yyyyMMdd');

@@ -63,7 +63,7 @@ button{width:100%;padding:8px;border:none;border-radius:6px;font-size:13px;font-
       <option>NBA</option>
       <option>MLB</option>
       <option>NHL</option>
-      <option>World Cup</option>
+      <option>Premier League</option>
       <option>Champions League</option>
     </select>
     <label>Pick a game</label>
@@ -225,6 +225,13 @@ function applyOption(g, optIdx) {
     document.getElementById('dogOddsVal').value=fmt(o.dogOdds);
   } else { document.getElementById('dogOddsVal').value=''; }
   if(g.gameDate) document.getElementById('date').value=g.gameDate;
+  // Update label: "Over picks" for totals, "Fav picks" for spread/ML
+  var favLabel=document.querySelector('label[for="favorite"]');
+  if(!favLabel) {
+    var favEl=document.getElementById('favorite');
+    if(favEl) favLabel=favEl.previousElementSibling;
+  }
+  if(favLabel) favLabel.textContent=o.type==='total'?'Over picks':'Fav picks';
 }
 
 function fmt(n){return n===null||n===undefined?'':(n>0?'+'+n:''+n);}
@@ -235,12 +242,24 @@ function addGame(){
   var idx=parseInt(document.getElementById('gameSelect').value);
   var g = _allGames[idx] || {};
   var ct = g.commenceTime || null;
+  // Determine if this is a total (O/U) bet based on selected market
+  var selectedMktEl = document.querySelector('.market-btn.selected');
+  var selectedMktIdx = -1;
+  if(selectedMktEl) {
+    var mId = selectedMktEl.id || '';
+    selectedMktIdx = parseInt(mId.replace('mbtn-',''));
+  }
+  var selectedOpt = (g.options||[])[selectedMktIdx];
+  var isTotal = selectedOpt && selectedOpt.type === 'total';
+  // For O/U bets, prefix odds with "O/U " so sheet and app can identify the bet type
+  var rawOdds = document.getElementById('oddsVal').value;
+  var odds = isTotal ? 'O/U ' + rawOdds : rawOdds;
   var d={
     date: document.getElementById('date').value,
     league: document.getElementById('league').value,
     game: t1+' vs '+t2,
     line: document.getElementById('line').value,
-    odds: document.getElementById('oddsVal').value,
+    odds: odds,
     favorite: document.getElementById('favorite').value,
     finalScore:'',winner:'',amtWon:'',paidOut:false,
     commenceTime: ct
@@ -315,18 +334,25 @@ function prevWinner(){
   var fav=document.getElementById('efav').value,picker=document.getElementById('epicker').value;
   var el=document.getElementById('eprev');
   if(!score||!line){el.innerHTML='';return;}
+  // Detect O/U bet from the edit meta (odds field contains "O/U")
+  var meta=document.getElementById('emeta').textContent||'';
+  var isTotal=meta.indexOf('O/U')>=0;
   google.script.run
     .withSuccessHandler(function(r){
       if(!r||r.error){el.innerHTML='';return;}
       if(r.isPush){
         el.innerHTML='<div class="wp" style="background:#fff3cd;color:#856404">🤝 Push — landed on the line → Split ($0)</div>';
+      } else if(r.isTotal||isTotal){
+        var totalScored=r.margin;
+        var overUnder=totalScored>line?'Over':'Under';
+        el.innerHTML='<div class="wp '+(r.winner===picker?'win':'lose')+'">⚾ Total: '+totalScored+' (line '+line+') → '+overUnder+' hits → '+r.winner+' wins $'+(document.getElementById('eamt').value||'?')+'</div>';
       } else {
         el.innerHTML='<div class="wp '+(r.covered?'win':'lose')+'">'+(r.covered?'🏆 Covered by '+(r.margin-r.line).toFixed(1):'💨 Missed by '+(r.line-r.margin).toFixed(1))+' → '+r.winner+' wins $'+(document.getElementById('eamt').value||'?')+'</div>';
       }
       document.getElementById('ewinner').value=r.winner;
     })
     .withFailureHandler(function(){el.innerHTML='';})
-    .resolveScore({scoreStr:score,favorite:fav,line:line,favoritePicker:picker});
+    .resolveScore({scoreStr:score,favorite:fav,line:line,favoritePicker:picker,isTotal:isTotal});
 }
 
 function saveUpdate(){

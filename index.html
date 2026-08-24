@@ -277,7 +277,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
             <option value="NCAA F">NCAA F</option>
             <option value="NHL">NHL</option>
             <option value="MLB">MLB</option>
-            <option value="World Cup">World Cup</option>
+            <option value="Premier League">Premier League</option>
             <option value="Champions League">Champions League</option>
           </select>
         </div>
@@ -521,6 +521,8 @@ function teamMatchClient(a,b){
 function buildLiveMap(liveGames,pendingGames){
   const map={};
   pendingGames.forEach(pg=>{
+    // Detect O/U from odds column marker
+    const isTotal=(pg.odds||'').toString().startsWith('O/U');
     const parts=(pg.game||'').split(' vs ');
     if(parts.length<2) return;
     const favTeam=parts[0].trim(), dogTeam=parts[1].trim();
@@ -530,13 +532,21 @@ function buildLiveMap(liveGames,pendingGames){
       const dMatchHome=teamMatchClient(dogTeam,lg.homeTeam)||teamMatchClient(dogTeam,lg.homeDisplay)||teamMatchClient(dogTeam,lg.homeAbbr);
       const dMatchAway=teamMatchClient(dogTeam,lg.awayTeam)||teamMatchClient(dogTeam,lg.awayDisplay)||teamMatchClient(dogTeam,lg.awayAbbr);
       if(!((fMatchHome&&dMatchAway)||(fMatchAway&&dMatchHome))) continue;
-      let favScore, dogScore;
-      if(fMatchHome){favScore=parseInt(lg.homeScore)||0;dogScore=parseInt(lg.awayScore)||0;}
-      else{favScore=parseInt(lg.awayScore)||0;dogScore=parseInt(lg.homeScore)||0;}
+      const homeScore=parseInt(lg.homeScore)||0, awayScore=parseInt(lg.awayScore)||0;
       const line=parseFloat(pg.line)||0;
-      const favCovering=(favScore-dogScore)>line;
+
+      let favCovering;
+      if(isTotal){
+        // For O/U: "favCovering" means the Over is winning (combined score > line)
+        favCovering=(homeScore+awayScore)>line;
+      } else {
+        let favScore, dogScore;
+        if(fMatchHome){favScore=homeScore;dogScore=awayScore;}
+        else{favScore=awayScore;dogScore=homeScore;}
+        favCovering=(favScore-dogScore)>line;
+      }
       map[pg.game]={
-        favScore,dogScore,favCovering,
+        favCovering,
         clock:lg.clock,period:lg.period,detail:lg.detail,
         scoreDisplay:lg.awayTeam+' '+lg.awayScore+' — '+lg.homeTeam+' '+lg.homeScore
       };
@@ -624,13 +634,31 @@ function renderGames(games,liveMap){
   list.innerHTML=sorted.map(g=>{
     const hasFinal=!!g.finalScore,isPending=!hasFinal;
     const isLive=isPending&&!!liveMap[g.game];
+    // Detect O/U total bet from odds column marker
+    const isTotal=(g.odds||'').toString().startsWith('O/U');
     // live-active gets a special card style; pending without live data gets pending style
     const cls=isLive?'pending live-active':isPending?'pending':'complete';
     const favPicker=g.favorite||'—',dogPicker=favPicker==='Matt'?'Sam':'Matt';
     const parts=(g.game||'').split(' vs ');
     const favTeam=parts[0]?parts[0].trim():'—',dogTeam=parts[1]?parts[1].trim():'—';
     const favNameClass=favPicker==='Matt'?'matt':'sam',dogNameClass=dogPicker==='Matt'?'matt':'sam';
-    const lineStr=g.line?`-${g.line}`:'',dogLineStr=g.line?`+${g.line}`:'';
+
+    // For O/U bets: show "Over X" / "Under X" with team context
+    // For spread bets: show team names with line
+    let favPickLabel, dogPickLabel, favLineLabel, dogLineLabel;
+    if(isTotal){
+      favPickLabel='Over ' + (g.line||'');
+      dogPickLabel='Under ' + (g.line||'');
+      favLineLabel=favTeam + ' vs ' + dogTeam;
+      dogLineLabel='';
+    } else {
+      const lineStr=g.line?`−${g.line}`:'';
+      const dogLineStr=g.line?`+${g.line}`:'';
+      favPickLabel=favTeam;
+      dogPickLabel=dogTeam;
+      favLineLabel=lineStr ? lineStr + ' (fav)' : '(fav)';
+      dogLineLabel=dogLineStr ? dogLineStr + ' (dog)' : '(dog)';
+    }
 
     // Badge: LIVE (pulsing red) > Pending (yellow) > Winner chip
     const badge=isLive
@@ -658,11 +686,16 @@ function renderGames(games,liveMap){
       </div>`;
     }
 
+    // Game title: for O/U show the matchup + "O/U" badge; for spread show normally
+    const gameTitle=isTotal
+      ?`${favTeam} vs ${dogTeam} <span style="font-size:11px;color:var(--accent3);font-weight:700">O/U ${g.line||''}</span>`
+      :g.game;
+
     return `<div class="game-card ${cls}" onclick='openEdit(${JSON.stringify(g).replace(/'/g,"&#39;")})'>
-      <div class="game-top"><div class="game-name">${g.game}</div>${badge}</div>
+      <div class="game-top"><div class="game-name">${gameTitle}</div>${badge}</div>
       <div class="picker-rows">
-        <div class="picker-row fav-row${favRowExtra}"><span class="picker-name ${favNameClass}">${favPicker}</span><span class="picker-arrow">→</span><span class="picker-team">${favTeam}</span><span class="picker-line">${lineStr} (fav)</span></div>
-        <div class="picker-row dog-row${dogRowExtra}"><span class="picker-name ${dogNameClass}">${dogPicker}</span><span class="picker-arrow">→</span><span class="picker-team">${dogTeam}</span><span class="picker-line">${dogLineStr} (dog)</span></div>
+        <div class="picker-row fav-row${favRowExtra}"><span class="picker-name ${favNameClass}">${favPicker}</span><span class="picker-arrow">→</span><span class="picker-team">${favPickLabel}</span><span class="picker-line">${favLineLabel}</span></div>
+        <div class="picker-row dog-row${dogRowExtra}"><span class="picker-name ${dogNameClass}">${dogPicker}</span><span class="picker-arrow">→</span><span class="picker-team">${dogPickLabel}</span><span class="picker-line">${dogLineLabel}</span></div>
       </div>
       ${liveHtml}
       <div class="game-meta"><span>${g.date}${timeDisplay}</span><span>${g.league}</span>${g.amtWon?`<span>$${g.amtWon}</span>`:''}</div>
@@ -823,6 +856,9 @@ function selectMarket(gameIdx,mktIdx){
   if(o.dogOdds!==null&&o.dogOdds!==undefined){
     document.getElementById('addDogOdds').value=(o.dogOdds>0?'+':'')+o.dogOdds;
   } else { document.getElementById('addDogOdds').value=''; }
+  // Update label: "Over picks" for totals, "Fav picks" for spread/ML
+  const favLabel=document.querySelector('label[for="addFavorite"]')||document.getElementById('addFavorite').parentElement.querySelector('.form-label');
+  if(favLabel) favLabel.textContent=o.type==='total'?'Over picks':'Fav picks';
 }
 
 // Convert UTC commenceTime to Central Time date string (yyyy-MM-dd)
@@ -850,7 +886,13 @@ async function submitAddGame(){
   // FIX: Derive date from commenceTime in Central Time when available
   // This ensures the Date column and Actual Start Time are always consistent
   const gameDate = g.commenceTime ? utcToCentralDate(g.commenceTime) : (g.gameDate || new Date().toISOString().split('T')[0]);
-  const d={date:gameDate,league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:document.getElementById('addOdds').value,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null};
+  // Determine if this is a total (O/U) bet based on selected market
+  const selectedOpt = (g.options||[])[_selectedMktIdx];
+  const isTotal = selectedOpt && selectedOpt.type === 'total';
+  // For O/U bets, prefix odds with "O/U " so sheet and app can identify the bet type
+  const rawOdds = document.getElementById('addOdds').value;
+  const odds = isTotal ? 'O/U ' + rawOdds : rawOdds;
+  const d={date:gameDate,league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:odds,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null};
   try{
     const r=await apiPost('addGame',d);
     if(r&&r.duplicate){showToast('⚠️ Duplicate: '+(r.reason||'Already in sheet')+' (row '+r.row+')','error');return;}
@@ -864,7 +906,7 @@ async function submitAddGame(){
 
 // EDIT
 function openEdit(g){
-  document.getElementById('editTitle').textContent=g.game;document.getElementById('editMeta').textContent=`${g.date} · ${g.league} · Line: ${g.line||'—'} · Fav: ${g.favorite}`;
+  document.getElementById('editTitle').textContent=g.game;document.getElementById('editMeta').textContent=`${g.date} · ${g.league} · Line: ${g.line||'—'} · Odds: ${g.odds||'—'} · Fav: ${g.favorite}`;
   document.getElementById('editScore').value=g.finalScore||'';document.getElementById('editWinner').value=g.winner||'';document.getElementById('editAmt').value=g.amtWon||'';
   document.getElementById('editRow').value=g.row;document.getElementById('editLine').value=g.line||'';document.getElementById('editFav').value=g.favorite||'';
   _paidChecked=g.paidOut||false;updatePaidBox();document.getElementById('winnerPreview').style.display='none';document.getElementById('editModal').classList.add('open');
@@ -878,12 +920,20 @@ function updatePaidBox(){document.getElementById('paidBox').className='checkbox-
 async function previewWinner(){
   const score=document.getElementById('editScore').value.trim(),line=parseFloat(document.getElementById('editLine').value),fav=document.getElementById('editFav').value,prev=document.getElementById('winnerPreview');
   if(!score||!line){prev.style.display='none';return;}
+  // Detect if this is an O/U total bet from the odds field (stored in editMeta text)
+  const metaText=document.getElementById('editMeta').textContent||'';
+  const isTotal=metaText.indexOf('O/U')>=0;
   try{
-    const r=await apiPost('resolveScore',{scoreStr:score,favorite:fav,line,favoritePicker:fav});
+    const r=await apiPost('resolveScore',{scoreStr:score,favorite:fav,line,favoritePicker:fav,isTotal:isTotal});
     if(!r){prev.style.display='none';return;}
     prev.style.display='block';
     if(r.isPush){
       prev.innerHTML=`<div class="winner-tag" style="background:rgba(255,214,10,0.12);color:var(--accent3);border:1px solid rgba(255,214,10,0.3)">🤝 Push — landed exactly on the line → <strong>Split (no money)</strong></div>`;
+    } else if(isTotal){
+      const isMatt=r.winner==='Matt';
+      const totalScored=r.margin;
+      const overUnder=totalScored>line?'Over':'Under';
+      prev.innerHTML=`<div class="winner-tag ${isMatt?'matt':'sam'}">⚾ Total: ${totalScored} (line ${line}) → ${overUnder} hits → <strong>${r.winner} wins</strong></div>`;
     } else {
       const isMatt=r.winner==='Matt';
       prev.innerHTML=`<div class="winner-tag ${isMatt?'matt':'sam'}">${r.covered?'🏆 Covered':'💨 Missed'} by ${Math.abs(r.margin-r.line).toFixed(1)} → <strong>${r.winner} wins</strong></div>`;

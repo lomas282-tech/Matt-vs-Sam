@@ -590,7 +590,7 @@ function autoUpdateScores() {
       
       var allEvents = [];
       for (var di = 0; di < datesToSearch.length; di++) {
-        var url = 'https://site.api.espn.com/apis/site/v2/sports/' + sportKey + '/scoreboard?dates=' + datesToSearch[di] + '&limit=300' + groupParam;
+        var url = 'https://site.web.api.espn.com/apis/site/v2/sports/' + sportKey + '/scoreboard?dates=' + datesToSearch[di] + '&limit=300' + groupParam;
         var resp = UrlFetchApp.fetch(url, {muteHttpExceptions:true});
         var text = resp.getContentText();
         if (text.charAt(0) === '<') { 
@@ -739,9 +739,12 @@ function getLiveScores() {
   sportKeys.forEach(function(sportKey) {
     try {
       var groupParam = (sportKey === 'basketball/mens-college-basketball' || sportKey === 'basketball/womens-college-basketball') ? '&groups=50' : '';
-      var url = 'https://site.api.espn.com/apis/site/v2/sports/' + sportKey +
+      var url = 'https://site.web.api.espn.com/apis/site/v2/sports/' + sportKey +
         '/scoreboard?limit=300&dates=' + todayStr + groupParam;
-      var events = JSON.parse(UrlFetchApp.fetch(url, {muteHttpExceptions: true}).getContentText()).events || [];
+      var resp = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
+      var text = resp.getContentText();
+      if (text.charAt(0) === '<') continue;
+      var events = JSON.parse(text).events || [];
 
       events.forEach(function(ev) {
         var status = (ev.status || {}).type || {};

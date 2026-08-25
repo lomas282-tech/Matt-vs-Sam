@@ -743,7 +743,7 @@ function getLiveScores() {
         '/scoreboard?limit=300&dates=' + todayStr + groupParam;
       var resp = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
       var text = resp.getContentText();
-      if (text.charAt(0) === '<') continue;
+      if (text.charAt(0) === '<') return;
       var events = JSON.parse(text).events || [];
 
       events.forEach(function(ev) {

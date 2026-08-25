@@ -591,8 +591,16 @@ function autoUpdateScores() {
       var allEvents = [];
       for (var di = 0; di < datesToSearch.length; di++) {
         var url = 'https://site.api.espn.com/apis/site/v2/sports/' + sportKey + '/scoreboard?dates=' + datesToSearch[di] + '&limit=300' + groupParam;
-        var events = JSON.parse(UrlFetchApp.fetch(url, {muteHttpExceptions:true}).getContentText()).events || [];
+        var resp = UrlFetchApp.fetch(url, {muteHttpExceptions:true});
+        var text = resp.getContentText();
+        if (text.charAt(0) === '<') { 
+          errors.push(grp.league + ' ' + datesToSearch[di] + ': ESPN returned non-JSON (possible rate limit)');
+          continue; 
+        }
+        var parsed = JSON.parse(text);
+        var events = parsed.events || [];
         allEvents = allEvents.concat(events);
+        if (datesToSearch.length > 1 && di < datesToSearch.length - 1) Utilities.sleep(500);
       }
       
       // Deduplicate events by ID

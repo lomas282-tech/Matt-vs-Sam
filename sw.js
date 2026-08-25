@@ -1,4 +1,4 @@
-const CACHE = 'samvsmatt-v4';
+const CACHE = 'samvsmatt-v5';
 const BASE = '/Matt-vs-Sam';
 const ASSETS = [
   BASE + '/',

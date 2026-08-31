@@ -84,7 +84,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .badge-live{background:rgba(255,77,109,0.2);color:var(--accent2);border:1px solid rgba(255,77,109,0.5);animation:pulse 1.4s infinite;}
 .badge-win{background:rgba(0,229,160,0.15);color:var(--accent);border:1px solid rgba(0,229,160,0.3);}
 .picker-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:7px;}
-.picker-row{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;font-size:12px;transition:background 0.3s;}
+.picker-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:12px;transition:background 0.3s;}
 .picker-row.fav-row{background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.18);}
 .picker-row.dog-row{background:rgba(77,159,255,0.07);border:1px solid rgba(77,159,255,0.18);}
 .picker-row.fav-row.live-covering{background:rgba(0,229,160,0.18);border-color:rgba(0,229,160,0.5);}
@@ -96,6 +96,24 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .picker-arrow{color:var(--muted);font-size:11px;}
 .picker-team{color:var(--text);font-weight:500;flex:1;}
 .picker-line{color:var(--muted);font-size:11px;white-space:nowrap;}
+/* --- Clearer selection rows (frontend presentation only) --- */
+.pick-main{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+.pick-choice{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+.pick-side{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:17px;letter-spacing:0.5px;line-height:1;text-transform:uppercase;}
+.pick-side.over{color:var(--accent);}
+.pick-side.under{color:var(--accent2);}
+.pick-line-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:17px;line-height:1;color:var(--text);}
+.pick-team-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:0.3px;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pick-spread{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:16px;line-height:1;}
+.pick-spread.plus{color:var(--accent);}
+.pick-spread.minus{color:var(--text);}
+.pick-odds{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:0.3px;}
+.pick-owner{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;}
+.pick-owner-label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.pick-owner-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.5px;text-transform:uppercase;line-height:1;}
+.pick-owner-name.matt{color:var(--matt);}.pick-owner-name.sam{color:var(--sam);}
+.picker-row.selected-pick{box-shadow:inset 0 0 0 1.5px currentColor;}
+.pick-check{font-size:12px;font-weight:900;color:var(--accent);}
 .live-inline{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.25);margin-bottom:7px;}
 .live-inline-badge{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--accent2);animation:pulse 1.4s infinite;white-space:nowrap;}
 .live-inline-score{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;flex:1;text-align:center;letter-spacing:1px;}
@@ -643,21 +661,24 @@ function renderGames(games,liveMap){
     const favTeam=parts[0]?parts[0].trim():'—',dogTeam=parts[1]?parts[1].trim():'—';
     const favNameClass=favPicker==='Matt'?'matt':'sam',dogNameClass=dogPicker==='Matt'?'matt':'sam';
 
-    // For O/U bets: show "Over X" / "Under X" with team context
-    // For spread bets: show team names with line
-    let favPickLabel, dogPickLabel, favLineLabel, dogLineLabel;
+    // Odds display only: strip the internal "O/U " marker so we show just the odds number.
+    // Backend value (g.odds) is unchanged; this is presentation only.
+    const oddsDisplay=(g.odds||'').toString().replace(/^O\/U\s*/i,'').trim();
+    const oddsHtml=oddsDisplay?`<span class="pick-odds">Odds: ${oddsDisplay}</span>`:'';
+    const lineNum=(g.line!==undefined&&g.line!==null&&g.line!=='')?g.line:'';
+
+    // Build the primary "choice" markup for each of the two rows.
+    // O/U: lead with OVER/UNDER + the total. Spread: lead with team name + signed spread.
+    // Odds shown as a secondary line under the choice. No fav/dog terminology surfaced.
+    let favChoiceHtml, dogChoiceHtml;
     if(isTotal){
-      favPickLabel='Over ' + (g.line||'');
-      dogPickLabel='Under ' + (g.line||'');
-      favLineLabel=favTeam + ' vs ' + dogTeam;
-      dogLineLabel='';
+      favChoiceHtml=`<span class="pick-side over">OVER</span><span class="pick-line-num">${lineNum}</span>`;
+      dogChoiceHtml=`<span class="pick-side under">UNDER</span><span class="pick-line-num">${lineNum}</span>`;
     } else {
-      const lineStr=g.line?`−${g.line}`:'';
-      const dogLineStr=g.line?`+${g.line}`:'';
-      favPickLabel=favTeam;
-      dogPickLabel=dogTeam;
-      favLineLabel=lineStr ? lineStr + ' (fav)' : '(fav)';
-      dogLineLabel=dogLineStr ? dogLineStr + ' (dog)' : '(dog)';
+      const favSpread=lineNum!==''?`−${lineNum}`:'';
+      const dogSpread=lineNum!==''?`+${lineNum}`:'';
+      favChoiceHtml=`<span class="pick-team-name">${favTeam}</span>${favSpread?`<span class="pick-spread minus">${favSpread}</span>`:''}`;
+      dogChoiceHtml=`<span class="pick-team-name">${dogTeam}</span>${dogSpread?`<span class="pick-spread plus">${dogSpread}</span>`:''}`;
     }
 
     // Badge: LIVE (pulsing red) > Pending (yellow) > Winner chip
@@ -694,8 +715,14 @@ function renderGames(games,liveMap){
     return `<div class="game-card ${cls}" onclick='openEdit(${JSON.stringify(g).replace(/'/g,"&#39;")})'>
       <div class="game-top"><div class="game-name">${gameTitle}</div>${badge}</div>
       <div class="picker-rows">
-        <div class="picker-row fav-row${favRowExtra}"><span class="picker-name ${favNameClass}">${favPicker}</span><span class="picker-arrow">→</span><span class="picker-team">${favPickLabel}</span><span class="picker-line">${favLineLabel}</span></div>
-        <div class="picker-row dog-row${dogRowExtra}"><span class="picker-name ${dogNameClass}">${dogPicker}</span><span class="picker-arrow">→</span><span class="picker-team">${dogPickLabel}</span><span class="picker-line">${dogLineLabel}</span></div>
+        <div class="picker-row fav-row${favRowExtra}">
+          <div class="pick-main"><div class="pick-choice">${favChoiceHtml}</div>${oddsHtml}</div>
+          <div class="pick-owner"><span class="pick-owner-label">Pick</span><span class="pick-owner-name ${favNameClass}">${favPicker}</span></div>
+        </div>
+        <div class="picker-row dog-row${dogRowExtra}">
+          <div class="pick-main"><div class="pick-choice">${dogChoiceHtml}</div>${oddsHtml}</div>
+          <div class="pick-owner"><span class="pick-owner-label">Pick</span><span class="pick-owner-name ${dogNameClass}">${dogPicker}</span></div>
+        </div>
       </div>
       ${liveHtml}
       <div class="game-meta"><span>${g.date}${timeDisplay}</span><span>${g.league}</span>${g.amtWon?`<span>$${g.amtWon}</span>`:''}</div>

@@ -307,12 +307,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
           <div class="form-group"><label class="form-label">Market</label><div class="market-pills" id="marketPills"></div></div>
         </div>
         <div class="form-row" style="margin-bottom:16px">
-          <div class="form-group" style="margin:0"><label class="form-label">Fav (Team 1)</label><input type="text" class="form-input" id="addTeam1" placeholder="Favorite"></div>
-          <div class="form-group" style="margin:0"><label class="form-label">Dog (Team 2)</label><input type="text" class="form-input" id="addTeam2" placeholder="Underdog"></div>
+          <div class="form-group" style="margin:0"><label class="form-label" id="lblTeam1">Fav (Team 1)</label><input type="text" class="form-input" id="addTeam1" placeholder="Favorite"></div>
+          <div class="form-group" style="margin:0"><label class="form-label" id="lblTeam2">Dog (Team 2)</label><input type="text" class="form-input" id="addTeam2" placeholder="Underdog"></div>
         </div>
         <div class="form-row" style="margin-bottom:12px">
-          <div class="form-group" style="margin:0"><label class="form-label">Fav Odds</label><input type="text" class="form-input" id="addOdds" placeholder="-110" style="color:var(--matt)"></div>
-          <div class="form-group" style="margin:0"><label class="form-label">Dog Odds</label><input type="text" class="form-input" id="addDogOdds" placeholder="+110" style="color:var(--sam)" readonly></div>
+          <div class="form-group" style="margin:0"><label class="form-label" id="lblOdds">Fav Odds</label><input type="text" class="form-input" id="addOdds" placeholder="-110" style="color:var(--matt)"></div>
+          <div class="form-group" style="margin:0"><label class="form-label" id="lblDogOdds">Dog Odds</label><input type="text" class="form-input" id="addDogOdds" placeholder="+110" style="color:var(--sam)" readonly></div>
         </div>
         <div class="form-row-3" style="margin-bottom:16px">
           <div class="form-group" style="margin:0"><label class="form-label">Line</label><input type="text" class="form-input" id="addLine" placeholder="3.5"></div>
@@ -883,9 +883,16 @@ function selectMarket(gameIdx,mktIdx){
   if(o.dogOdds!==null&&o.dogOdds!==undefined){
     document.getElementById('addDogOdds').value=(o.dogOdds>0?'+':'')+o.dogOdds;
   } else { document.getElementById('addDogOdds').value=''; }
-  // Update label: "Over picks" for totals, "Fav picks" for spread/ML
+  // Relabel the form for clarity based on market type (presentation only — input IDs/values unchanged).
+  // Totals: Over / Under wording. Spread/ML: keep Fav / Dog wording.
+  const isTotalMkt=o.type==='total';
+  const setLbl=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
+  setLbl('lblTeam1',   isTotalMkt?'Team 1'    :'Fav (Team 1)');
+  setLbl('lblTeam2',   isTotalMkt?'Team 2'    :'Dog (Team 2)');
+  setLbl('lblOdds',    isTotalMkt?'Over Odds' :'Fav Odds');
+  setLbl('lblDogOdds', isTotalMkt?'Under Odds':'Dog Odds');
   const favLabel=document.querySelector('label[for="addFavorite"]')||document.getElementById('addFavorite').parentElement.querySelector('.form-label');
-  if(favLabel) favLabel.textContent=o.type==='total'?'Over picks':'Fav picks';
+  if(favLabel) favLabel.textContent=isTotalMkt?'Over Picks':'Fav Picks';
 }
 
 // Convert UTC commenceTime to Central Time date string (yyyy-MM-dd)

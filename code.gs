@@ -34,7 +34,7 @@ function getSportKey(league) {
     'NCAA WBB': 'basketball/womens-college-basketball',
     'NCAA MH':  'hockey/mens-college-hockey',
     'Premier League': 'soccer_epl',
-    'Champions League': 'soccer_uefa_champions_league'
+    'Champions League': 'soccer_uefa_champs_league'
   };
   return map[league]||null;
 }
@@ -336,8 +336,10 @@ function resolveScore(d) {
 // Previously matched on game name + date only, which blocked series games
 // (same teams, different days or doubleheaders).
 // NEW LOGIC:
-//   1. If commenceTime is provided: match on game + commenceTime (unique per event)
-//   2. Fallback (manual entry): match on game + date + line (lines differ per game in a series)
+//   1. If commenceTime is provided: match on game + commenceTime + bet identity
+//      (line + odds + favorite). Different bet types on the same game — e.g. an
+//      over and a line bet — differ in odds/line/favorite, so both are allowed.
+//   2. Fallback (manual entry): match on game + date + line + odds + favorite.
 // ─────────────────────────────────────────────────────────────────────────────
 function addGame(d) {
   var sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Game List');
@@ -348,28 +350,37 @@ function addGame(d) {
     var inputGame = (d.game||'').toLowerCase().trim();
     var inputCommenceTime = (d.commenceTime||'').trim();
     var inputLine = (d.line||'').toString().trim();
+    var inputOdds = (d.odds||'').toString().toLowerCase().trim();
+    var inputFavorite = (d.favorite||'').toString().toLowerCase().trim();
 
     for (var i=0;i<existing.length;i++){
       var eGame = (existing[i][2]||'').toString().toLowerCase().trim();
       if (eGame !== inputGame) continue;
 
-      // Strategy 1: If we have commenceTime, use it as the unique key
+      // A bet is uniquely identified by its line + odds + favorite. Two rows for
+      // the same game are only duplicates when all three match; an over vs a line
+      // bet differ here and are treated as distinct bets.
+      var eLine = (existing[i][3]||'').toString().trim();
+      var eOdds = (existing[i][4]||'').toString().toLowerCase().trim();
+      var eFavorite = (existing[i][5]||'').toString().toLowerCase().trim();
+      var sameBet = (eLine === inputLine && eOdds === inputOdds && eFavorite === inputFavorite);
+
+      // Strategy 1: If we have commenceTime, use it as the event key
       if (inputCommenceTime) {
         var eCommenceTime = (existing[i][10]||'').toString().trim();
-        if (eCommenceTime === inputCommenceTime) {
-          return {duplicate:true, row:i+2, reason:'Same game + start time already exists'};
+        if (eCommenceTime === inputCommenceTime && sameBet) {
+          return {duplicate:true, row:i+2, reason:'Same game + start time + bet already exists'};
         }
-        // Different commence time = different game in series, allow it
+        // Different commence time (series game) or different bet type = allow it
         continue;
       }
 
-      // Strategy 2: Fallback for manual entries — match on game + date + line
+      // Strategy 2: Fallback for manual entries — match on game + date + bet
       var inputDate = d.date ? Utilities.formatDate(new Date(d.date), Session.getScriptTimeZone(), 'M/d/yyyy') : '';
       var eDate = existing[i][0] ? Utilities.formatDate(new Date(existing[i][0]), Session.getScriptTimeZone(), 'M/d/yyyy') : '';
-      var eLine = (existing[i][3]||'').toString().trim();
 
-      if (eDate === inputDate && eLine === inputLine) {
-        return {duplicate:true, row:i+2, reason:'Same game + date + line already exists'};
+      if (eDate === inputDate && sameBet) {
+        return {duplicate:true, row:i+2, reason:'Same game + date + bet already exists'};
       }
     }
   }

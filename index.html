@@ -401,15 +401,33 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 <div class="toast" id="toast"></div>
 
 <script>
-const API='https://script.google.com/macros/s/AKfycbzu6_Fv3lDg3X9OUlWe-tc4uPNPviK-tuv9QhysSQB9Gfnlm3ztcmYoD-HmaLsyJTW9/exec';
+const API='https://script.google.com/macros/s/AKfycbzqSHtnubDNcxsVcgvwn6TqfW8m8lI00t91aley6TOb3Oi2Q_0MBJNvALF-ScK0fL4/exec';
 let _allGames=[],_selectedGameIdx=-1,_selectedMktIdx=-1;
 let _paidChecked=false,_balanceData=null,_currentPeriod='week';
 let _liveInterval=null,_liveData=[],_payoutStats=null;
 let _pendingGames=[];
 let _cachedGames=[];  // full game list cache to avoid re-fetching on live poll
 
-async function apiGet(action,params={}){const url=new URL(API);url.searchParams.set('action',action);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const r=await fetch(url.toString());return r.json();}
-async function apiPost(action,data={}){const r=await fetch(API,{method:'POST',body:JSON.stringify({action,data})});return r.json();}
+// Parse a fetch Response as JSON, but fail loudly if the body isn't JSON.
+// Apps Script returns an HTML login/redirect or error page (not JSON) when the
+// web app isn't deployed with "Anyone" access or when a server function throws.
+// Detect that here so the UI can show the real cause instead of a generic error.
+async function parseJsonResponse(r,action){
+  const text=await r.text();
+  const trimmed=text.trim();
+  if(trimmed.charAt(0)==='<'){
+    console.error(`[${action}] Expected JSON but got HTML (status ${r.status}). First 200 chars:`,trimmed.slice(0,200));
+    throw new Error('AUTH_OR_DEPLOY: the /exec endpoint returned HTML instead of JSON. Check that the Apps Script web app is deployed with "Who has access: Anyone".');
+  }
+  try{
+    return JSON.parse(text);
+  }catch(err){
+    console.error(`[${action}] Response was not valid JSON:`,trimmed.slice(0,200));
+    throw new Error('BAD_JSON: '+err.message);
+  }
+}
+async function apiGet(action,params={}){const url=new URL(API);url.searchParams.set('action',action);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const r=await fetch(url.toString());return parseJsonResponse(r,action);}
+async function apiPost(action,data={}){const r=await fetch(API,{method:'POST',body:JSON.stringify({action,data})});return parseJsonResponse(r,action);}
 
 window.addEventListener('load',()=>{
   setTimeout(()=>{document.getElementById('loader').classList.add('hidden');startHomeTab();},1400);
@@ -450,22 +468,37 @@ function setPeriod(p){
 }
 
 async function loadHome(){
-  try{
-    const[games,balance,period]=await Promise.all([
-      apiGet('getRecentGames'),
-      apiGet('getBalance'),
-      apiGet('getPayoutPeriodStats')
-    ]);
-    _balanceData=balance;
+  // Fetch independently so one failing call doesn't wipe out the whole home tab.
+  const[gamesR,balanceR,periodR]=await Promise.allSettled([
+    apiGet('getRecentGames'),
+    apiGet('getBalance'),
+    apiGet('getPayoutPeriodStats')
+  ]);
+
+  if(balanceR.status==='fulfilled'){
+    _balanceData=balanceR.value;
+    renderScoreboard(balanceR.value);
+    renderBalance(balanceR.value);
+  }
+  if(periodR.status==='fulfilled'){
+    renderPeriodCard(periodR.value);
+  }
+
+  if(gamesR.status==='fulfilled'&&Array.isArray(gamesR.value)){
+    const games=gamesR.value;
     _cachedGames=games;
-    renderScoreboard(balance);
-    renderBalance(balance);
-    renderPeriodCard(period);
     _pendingGames=games.filter(g=>!g.finalScore);
     renderGames(games,{});
     maybeStartLivePolling(_pendingGames.length>0);
-  }catch(e){
-    document.getElementById('gamesList').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load. Tap Refresh to retry.</div></div>';
+  }else{
+    const err=gamesR.status==='rejected'?gamesR.reason:(gamesR.value&&gamesR.value.error);
+    const msg=(err&&err.message)?err.message:(err||'Unknown error');
+    console.error('loadHome getRecentGames failed:',err);
+    document.getElementById('gamesList').innerHTML=
+      '<div class="empty-state"><div class="empty-icon">⚠️</div>'+
+      '<div class="empty-text">Failed to load recent games. Tap Refresh to retry.</div>'+
+      '<div class="empty-text" style="font-size:11px;color:var(--muted);margin-top:8px;word-break:break-word">'+String(msg)+'</div>'+
+      '</div>';
   }
 }
 

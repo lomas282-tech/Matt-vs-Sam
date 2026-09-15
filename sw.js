@@ -1,4 +1,4 @@
-const CACHE = 'samvsmatt-v8';
+const CACHE = 'samvsmatt-v10';
 const BASE = '/Matt-vs-Sam';
 const ASSETS = [
   BASE + '/',
@@ -9,8 +9,12 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
+  // Cache assets individually so one missing file (e.g. an icon that 404s)
+  // doesn't reject the whole install via addAll()'s all-or-nothing behavior.
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS))
+    caches.open(CACHE).then(c =>
+      Promise.allSettled(ASSETS.map(a => c.add(a)))
+    )
   );
   self.skipWaiting();
 });

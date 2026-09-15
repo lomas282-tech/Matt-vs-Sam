@@ -287,7 +287,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
     <div class="view" id="view-add">
       <div class="form-container">
         <div class="form-group">
-          <label class="form-label">League</label>
+          <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">League<span class="section-action" style="font-weight:600;cursor:pointer" onclick="fetchGames(true)">↻ Refresh odds</span></label>
           <select class="form-select" id="addLeague" onchange="fetchGames()">
             <option value="NCAA MBB">NCAA MBB</option>
             <option value="NBA">NBA</option>
@@ -401,7 +401,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 <div class="toast" id="toast"></div>
 
 <script>
-const API='https://script.google.com/macros/s/AKfycbzqSHtnubDNcxsVcgvwn6TqfW8m8lI00t91aley6TOb3Oi2Q_0MBJNvALF-ScK0fL4/exec';
+const API='https://script.google.com/macros/s/AKfycbz2q5gxGcL41LSZKjMyfmA3YPXvtOILNtUMHxvMvuR2ALRCD3CNRziA0LntXBxa2K1q/exec';
 let _allGames=[],_selectedGameIdx=-1,_selectedMktIdx=-1;
 let _paidChecked=false,_balanceData=null,_currentPeriod='week';
 let _liveInterval=null,_liveData=[],_payoutStats=null;
@@ -426,8 +426,16 @@ async function parseJsonResponse(r,action){
     throw new Error('BAD_JSON: '+err.message);
   }
 }
-async function apiGet(action,params={}){const url=new URL(API);url.searchParams.set('action',action);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const r=await fetch(url.toString());return parseJsonResponse(r,action);}
-async function apiPost(action,data={}){const r=await fetch(API,{method:'POST',body:JSON.stringify({action,data})});return parseJsonResponse(r,action);}
+const API_TIMEOUT_MS=15000;
+function fetchWithTimeout(url,opts={},ms=API_TIMEOUT_MS){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),ms);
+  return fetch(url,{...opts,signal:ctrl.signal})
+    .catch(err=>{ if(err&&err.name==='AbortError') throw new Error('TIMEOUT'); throw err; })
+    .finally(()=>clearTimeout(t));
+}
+async function apiGet(action,params={}){const url=new URL(API);url.searchParams.set('action',action);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const r=await fetchWithTimeout(url.toString());return parseJsonResponse(r,action);}
+async function apiPost(action,data={}){const r=await fetchWithTimeout(API,{method:'POST',body:JSON.stringify({action,data})});return parseJsonResponse(r,action);}
 
 window.addEventListener('load',()=>{
   setTimeout(()=>{document.getElementById('loader').classList.add('hidden');startHomeTab();},1400);
@@ -873,24 +881,63 @@ async function loadStats(){
 }
 
 // ADD GAME
-async function fetchGames(){
-  const league=document.getElementById('addLeague').value;
-  document.getElementById('gamePickerList').innerHTML='<div class="picker-loading"><span class="spinner"></span> Loading all upcoming '+league+' games...</div>';
-  document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
+// Client-side games cache (memory + localStorage) keyed by league.
+// Re-selecting a league within the TTL renders instantly with no network call,
+// and it survives page reloads so reopening the app doesn't cold-start.
+const _gamesCache={};                 // league -> {ts, games}
+const GAMES_TTL_MS=5*60*1000;         // 5 min
+function _gamesKey(league){return 'games_'+league;}
+function readGamesCache(league){
+  const mem=_gamesCache[league];
+  if(mem&&Date.now()-mem.ts<GAMES_TTL_MS) return mem.games;
   try{
-    const games=await apiGet('getGamesForLeague',{league});
-    _allGames=games||[];
-    if(!_allGames.length||(_allGames[0]&&_allGames[0].error)){
-      document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">No upcoming games found</div>';return;
-    }
-    document.getElementById('gamePickerList').innerHTML=_allGames.map((g,i)=>`
+    const raw=localStorage.getItem(_gamesKey(league));
+    if(raw){const o=JSON.parse(raw); if(o&&Date.now()-o.ts<GAMES_TTL_MS){_gamesCache[league]=o; return o.games;}}
+  }catch(e){}
+  return null;
+}
+function writeGamesCache(league,games){
+  const o={ts:Date.now(),games};
+  _gamesCache[league]=o;
+  try{localStorage.setItem(_gamesKey(league),JSON.stringify(o));}catch(e){}
+}
+function renderGamesPicker(games){
+  _allGames=games||[];_selectedGameIdx=-1;_selectedMktIdx=-1;
+  document.getElementById('marketGroup').style.display='none';
+  const list=document.getElementById('gamePickerList');
+  if(!_allGames.length||(_allGames[0]&&_allGames[0].error)){
+    const msg=(_allGames[0]&&_allGames[0].error&&_allGames[0].retryAfter)
+      ?'Odds temporarily unavailable — try again in a moment':'No upcoming games found';
+    list.innerHTML='<div class="picker-loading">'+msg+'</div>';return;
+  }
+  list.innerHTML=_allGames.map((g,i)=>`
       <div class="game-option" id="gopt-${i}" onclick="selectGame(${i})">
         <div class="go-date">${g.displayDate||g.gameDate}</div>
         <div class="go-label">${g.awayTeam} @ ${g.homeTeam}</div>
         ${g.options&&g.options[0]?`<div class="go-odds">${g.options[0].oddsStr||''} <span style="color:var(--accent);font-weight:700;font-size:10px">● closest to 50/50</span></div>`:''}
         ${g.startingSoon?`<div class="go-soon">⚠️ Starting within 30 min — lock it in!</div>`:''}
       </div>`).join('');
-  }catch(e){document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Error loading games</div>';}
+}
+async function fetchGames(force){
+  const league=document.getElementById('addLeague').value;
+
+  // Cache hit: render instantly, no network call.
+  if(!force){
+    const cached=readGamesCache(league);
+    if(cached){renderGamesPicker(cached);return;}
+  }
+
+  document.getElementById('gamePickerList').innerHTML='<div class="picker-loading"><span class="spinner"></span> Loading all upcoming '+league+' games...</div>';
+  document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
+  try{
+    const games=await apiGet('getGamesForLeague',{league});
+    // Only cache real results — never cache errors or empty pulls.
+    if(games&&games.length&&!(games[0]&&games[0].error)) writeGamesCache(league,games);
+    renderGamesPicker(games);
+  }catch(e){
+    const msg=(e&&e.message==='TIMEOUT')?'Timed out — try again':'Error loading games';
+    document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">'+msg+'</div>';
+  }
 }
 
 function selectGame(idx){

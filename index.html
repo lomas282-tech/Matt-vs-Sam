@@ -426,7 +426,10 @@ async function parseJsonResponse(r,action){
     throw new Error('BAD_JSON: '+err.message);
   }
 }
-const API_TIMEOUT_MS=15000;
+// Apps Script web apps are slow (cold start + UrlFetchApp + upstream Odds API),
+// so timeouts are generous. Odds pulls get the longest budget.
+const API_TIMEOUT_MS=30000;
+const ODDS_TIMEOUT_MS=45000;
 function fetchWithTimeout(url,opts={},ms=API_TIMEOUT_MS){
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),ms);
@@ -434,8 +437,8 @@ function fetchWithTimeout(url,opts={},ms=API_TIMEOUT_MS){
     .catch(err=>{ if(err&&err.name==='AbortError') throw new Error('TIMEOUT'); throw err; })
     .finally(()=>clearTimeout(t));
 }
-async function apiGet(action,params={}){const url=new URL(API);url.searchParams.set('action',action);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const r=await fetchWithTimeout(url.toString());return parseJsonResponse(r,action);}
-async function apiPost(action,data={}){const r=await fetchWithTimeout(API,{method:'POST',body:JSON.stringify({action,data})});return parseJsonResponse(r,action);}
+async function apiGet(action,params={},timeoutMs){const url=new URL(API);url.searchParams.set('action',action);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const r=await fetchWithTimeout(url.toString(),{},timeoutMs);return parseJsonResponse(r,action);}
+async function apiPost(action,data={},timeoutMs){const r=await fetchWithTimeout(API,{method:'POST',body:JSON.stringify({action,data})},timeoutMs);return parseJsonResponse(r,action);}
 
 window.addEventListener('load',()=>{
   setTimeout(()=>{document.getElementById('loader').classList.add('hidden');startHomeTab();},1400);
@@ -901,6 +904,16 @@ function writeGamesCache(league,games){
   _gamesCache[league]=o;
   try{localStorage.setItem(_gamesKey(league),JSON.stringify(o));}catch(e){}
 }
+// Read cached games ignoring TTL — used as a fallback when a live pull fails.
+function readGamesCacheStale(league){
+  const mem=_gamesCache[league];
+  if(mem&&mem.games&&mem.games.length) return mem.games;
+  try{
+    const raw=localStorage.getItem(_gamesKey(league));
+    if(raw){const o=JSON.parse(raw); if(o&&o.games&&o.games.length) return o.games;}
+  }catch(e){}
+  return null;
+}
 function renderGamesPicker(games){
   _allGames=games||[];_selectedGameIdx=-1;_selectedMktIdx=-1;
   document.getElementById('marketGroup').style.display='none';
@@ -930,12 +943,16 @@ async function fetchGames(force){
   document.getElementById('gamePickerList').innerHTML='<div class="picker-loading"><span class="spinner"></span> Loading all upcoming '+league+' games...</div>';
   document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
   try{
-    const games=await apiGet('getGamesForLeague',{league});
+    const games=await apiGet('getGamesForLeague',{league},ODDS_TIMEOUT_MS);
     // Only cache real results — never cache errors or empty pulls.
     if(games&&games.length&&!(games[0]&&games[0].error)) writeGamesCache(league,games);
     renderGamesPicker(games);
   }catch(e){
-    const msg=(e&&e.message==='TIMEOUT')?'Timed out — try again':'Error loading games';
+    // On timeout/network error, fall back to any cached copy (even if stale)
+    // rather than leaving the user with nothing.
+    const stale=readGamesCacheStale(league);
+    if(stale){renderGamesPicker(stale);showToast('Showing saved odds — tap Refresh for latest','error');return;}
+    const msg=(e&&e.message==='TIMEOUT')?'Timed out — tap Refresh to retry':'Error loading games';
     document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">'+msg+'</div>';
   }
 }

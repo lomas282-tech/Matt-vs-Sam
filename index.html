@@ -963,11 +963,14 @@ async function submitAddGame(){
   try{
     const r=await apiPost('addGame',d);
     if(r&&r.duplicate){showToast('⚠️ Duplicate: '+(r.reason||'Already in sheet')+' (row '+r.row+')','error');return;}
-    showToast('✅ Added!','success');
+    showToast('✅ Added! Pick another game','success');
+    // Clear the form inputs but keep the league selected.
     document.getElementById('addTeam1').value='';document.getElementById('addTeam2').value='';
     document.getElementById('addLine').value='';document.getElementById('addOdds').value='';document.getElementById('addDogOdds').value='';
-    document.getElementById('gamePickerList').innerHTML='<div class="picker-loading">Select a league to load upcoming games</div>';
-    document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
+    document.getElementById('marketGroup').style.display='none';_selectedGameIdx=-1;_selectedMktIdx=-1;
+    // Reload the game picker for the same league so multiple bets can be added
+    // from one league without switching leagues to force a refresh.
+    fetchGames();
   }catch(e){showToast('Error: '+e.message,'error');}
 }
 

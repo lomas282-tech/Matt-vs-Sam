@@ -2,6 +2,12 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 var BET_AMOUNT = 5;          // default payout per winning bet (change here only)
 var RECENT_GAMES_COUNT = 49; // how many sheet rows to show in Recent Games
+
+// ── Odds cache config ──────────────────────────────────────────────────────
+var ODDS_CACHE_SHEET = 'OddsCache';   // hidden tab: league | json | fetchedAt(ms)
+var ODDS_TTL_MS = 6 * 60 * 60 * 1000; // 6h: how long cached odds are considered fresh
+var ODDS_FAIL_TTL_MS = 60 * 1000;     // 60s: negative-cache window after a failed pull
+// ────────────────────────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
 
 function onOpen() {
@@ -20,6 +26,12 @@ function showSidebar() {
 
 function score110(odds) { return Math.abs(Math.abs(odds) - 110); }
 function fmt(n) { return (n===null||n===undefined)?'?':(n>0?'+'+n:''+n); }
+// Winner cell -> 'Matt' | 'Sam' | null. Splits (draws/pushes) and blanks return
+// null so they never count as a win or a loss.
+function normWinner_(v) {
+  var w = (v||'').toString().trim().toLowerCase();
+  return w==='matt' ? 'Matt' : w==='sam' ? 'Sam' : null;
+}
 
 function getSportKey(league) {
   var map = {
@@ -106,26 +118,111 @@ function teamsMatch(a, b) {
   return false;
 }
 
+// ── Sheet-backed odds cache ──────────────────────────────────────────────────
+// CacheService is fast but can be evicted before its TTL. A hidden sheet gives
+// us a durable second layer so re-selecting a league doesn't re-hit the slow
+// Odds API. Layout: OddsCache tab with rows [league, json, fetchedAt(ms)].
+function getOddsCacheSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(ODDS_CACHE_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(ODDS_CACHE_SHEET);
+    sh.getRange(1, 1, 1, 3).setValues([['league', 'json', 'fetchedAt']]);
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+function readOddsCache_(league) {
+  try {
+    var sh = getOddsCacheSheet_();
+    var last = sh.getLastRow();
+    if (last < 2) return null;
+    var vals = sh.getRange(2, 1, last - 1, 3).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (vals[i][0] === league) {
+        return { json: vals[i][1], fetchedAt: Number(vals[i][2]) || 0, row: i + 2 };
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function writeOddsCache_(league, jsonStr) {
+  try {
+    var sh = getOddsCacheSheet_();
+    var existing = readOddsCache_(league);
+    var now = Date.now();
+    if (existing) {
+      sh.getRange(existing.row, 2, 1, 2).setValues([[jsonStr, now]]);
+    } else {
+      sh.appendRow([league, jsonStr, now]);
+    }
+  } catch (e) {}
+}
+
 function getGamesForLeague(league) {
+  var cacheKey = 'odds_' + league.replace(/\s/g, '_');
+  var cache = CacheService.getScriptCache();
   try {
     var sportKey = getSportKey(league);
     if (!sportKey) return [];
 
-    // ── Cache check ──────────────────────────────────────────────────────────
-    var cache = CacheService.getScriptCache();
-    var cacheKey = 'odds_' + league.replace(/\s/g, '_');
+    // ── Layer 1: fast in-memory script cache (fresh results only) ────────────
     var cached = cache.get(cacheKey);
     if (cached) {
       var parsed = JSON.parse(cached);
       if (parsed && parsed.length) return parsed;
+      // note: a __fail marker here does NOT short-circuit — we still prefer to
+      // serve durable cache (below) or attempt a fresh pull. The marker only
+      // becomes the answer at the very end if nothing else works.
+    }
+
+    // ── Layer 2: durable sheet-backed cache (serve if fresh) ─────────────────
+    var durable = readOddsCache_(league);
+    var durParsedGlobal = null;
+    if (durable && durable.json) {
+      try { durParsedGlobal = JSON.parse(durable.json); } catch (e) { durParsedGlobal = null; }
+    }
+    if (durParsedGlobal && durParsedGlobal.length && (Date.now() - durable.fetchedAt) < ODDS_TTL_MS) {
+      try { cache.put(cacheKey, durable.json, 21600); } catch (e) {}
+      return durParsedGlobal;
+    }
+
+    // If we recently failed AND have any usable stale cache, serve the stale
+    // copy rather than re-hitting a flaky upstream. Only fall through to a live
+    // pull when we have nothing to show.
+    if (cached) {
+      var p2 = JSON.parse(cached);
+      if (p2 && p2.__fail && durParsedGlobal && durParsedGlobal.length) {
+        return durParsedGlobal;
+      }
     }
     // ────────────────────────────────────────────────────────────────────────
 
     var url = 'https://api.the-odds-api.com/v4/sports/' + sportKey +
       '/odds/?apiKey=7d2ddd074c8eb70572c33f7044136f70&regions=us&markets=spreads,h2h,totals&oddsFormat=american&dateFormat=iso';
-    var resp = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
-    var data = JSON.parse(resp.getContentText());
-    if (!Array.isArray(data)) return [];
+
+    // One quick retry smooths over transient upstream hiccups (the main cause
+    // of intermittent "error loading games").
+    var data = null, lastCode = 0;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+        lastCode = resp.getResponseCode();
+        if (lastCode >= 200 && lastCode < 300) {
+          try { var d = JSON.parse(resp.getContentText()); if (Array.isArray(d)) { data = d; break; } } catch (e) {}
+        }
+      } catch (e) {}
+      if (attempt === 0) Utilities.sleep(800); // brief backoff before retry
+    }
+
+    if (!Array.isArray(data)) {
+      // Both attempts failed. Serve ANY stale durable cache before erroring.
+      if (durParsedGlobal && durParsedGlobal.length) return durParsedGlobal;
+      try { cache.put(cacheKey, JSON.stringify({ __fail: true }), Math.round(ODDS_FAIL_TTL_MS / 1000)); } catch (e) {}
+      return [{ error: 'Odds temporarily unavailable (HTTP ' + lastCode + ')', retryAfter: true }];
+    }
 
     var isCollege = (league === 'NCAA F' || league === 'NCAA MBB');
     // Soccer leagues use full team names (no abbreviation needed)
@@ -278,12 +375,22 @@ function getGamesForLeague(league) {
 
     games.sort(function(a, b) { return new Date(a.commenceTime) - new Date(b.commenceTime); });
 
-    // ── Store in cache for 6 hours ───────────────────────────────────────────
-    try { cache.put(cacheKey, JSON.stringify(games), 21600); } catch(e) {}
+    // ── Store in both cache layers ───────────────────────────────────────────
+    var gamesJson = JSON.stringify(games);
+    try { cache.put(cacheKey, gamesJson, 21600); } catch(e) {}  // layer 1: 6h
+    if (games.length) writeOddsCache_(league, gamesJson);        // layer 2: durable
     // ────────────────────────────────────────────────────────────────────────
 
     return games;
-  } catch(e) { return [{ error: e.toString() }]; }
+  } catch(e) {
+    // On unexpected error, prefer serving stale durable cache over a hard error.
+    try {
+      var d = readOddsCache_(league);
+      if (d && d.json) { var p = JSON.parse(d.json); if (p && p.length) return p; }
+    } catch (e2) {}
+    try { cache.put(cacheKey, JSON.stringify({ __fail: true }), Math.round(ODDS_FAIL_TTL_MS / 1000)); } catch (e3) {}
+    return [{ error: e.toString(), retryAfter: true }];
+  }
 }
 
 function getGamesForDate(league, dateStr) {
@@ -466,13 +573,14 @@ function getPayoutPeriodStats() {
     var r=data[i];
     if (!r[2]||!r[7]) continue;
     if (r[9]==='X') continue;
-    var amt=parseFloat(r[8])||0, winner=r[7];
+    var amt=parseFloat(r[8])||0, winner=normWinner_(r[7]);
+    if (!winner) continue; // split: not a win or a loss
     var gameDate=r[0]?new Date(r[0]):null;
     if (gameDate && (!earliestDate || gameDate < earliestDate)) {
       earliestDate = gameDate;
     }
-    if (winner==='Matt'){mattWins++;mattNet+=amt;samLosses++;unpaidBalance+=amt;}
-    else {samWins++;samNet+=amt;mattLosses++;unpaidBalance-=amt;}
+    if (winner==='Matt'){mattWins++;mattNet+=amt;samNet-=amt;samLosses++;unpaidBalance+=amt;}
+    else {samWins++;samNet+=amt;mattNet-=amt;mattLosses++;unpaidBalance-=amt;}
     games.push({row:i+2,date:r[0]?Utilities.formatDate(new Date(r[0]),Session.getScriptTimeZone(),'M/d'):'',game:r[2]||'', league:r[1]||'',winner:winner, amt:amt, finalScore:r[6]||''});
   }
 
@@ -515,7 +623,7 @@ function processPayout() {
   }
 
   var balance=0;
-  unpaid.forEach(function(g){ balance+=(g.winner==='Matt')?g.amt:-g.amt; });
+  unpaid.forEach(function(g){ var w=normWinner_(g.winner); if (w) balance+=(w==='Matt')?g.amt:-g.amt; });
   var absBalance=Math.abs(balance);
   var payoutDue=Math.floor(absBalance/20)*20;
   if (payoutDue<20) return {success:false,message:'No payout due yet. Balance is $'+absBalance.toFixed(2)};
@@ -824,10 +932,10 @@ function buildSummary() {
   });
 
   data.forEach(function(r){
-    var league=r[1],winner=r[7],amt=parseFloat(r[8])||0,paid=r[9]==='X';
+    var league=r[1],winner=normWinner_(r[7]),amt=parseFloat(r[8])||0,paid=r[9]==='X';
     var date=r[0]?new Date(r[0]):null;
     var monthKey=date?(date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')):'unknown';
-    var game=r[2]; if (!winner||winner==='') return;
+    var game=r[2]; if (!winner) return; // blank or split: not a win or a loss
     if (!paid) unpaidBalance+=(winner==='Matt')?amt:-amt;
     bettors.forEach(function(b){
       var won=winner===b,s=stats[b];
@@ -1002,31 +1110,33 @@ function getBalance() {
 
   for (var i=0;i<data.length;i++){
     var r=data[i]; if (!r[2]||!r[7]) continue;
-    var amt=parseFloat(r[8])||0,winner=r[7],paid=r[9]==='X',league=r[1]||'Other';
+    var amt=parseFloat(r[8])||0,winner=normWinner_(r[7]),paid=r[9]==='X',league=r[1]||'Other';
+    if (!winner) continue; // split: not a win or a loss
     var gameDate=r[0]?new Date(r[0]):null;
 
+    // Net = money won minus money lost (each $ won by one side is lost by the other)
     if (!byLeague[league]) byLeague[league]={mattWins:0,mattLosses:0,samWins:0,samLosses:0,mattNet:0,samNet:0};
     if (winner==='Matt'){
-      mattWins++;mattNet+=amt;
-      byLeague[league].mattWins++;byLeague[league].mattNet+=amt;byLeague[league].samLosses++;
+      mattWins++;mattNet+=amt;samNet-=amt;
+      byLeague[league].mattWins++;byLeague[league].mattNet+=amt;byLeague[league].samNet-=amt;byLeague[league].samLosses++;
       if (!paid) unpaidBalance+=amt;
     } else {
-      samWins++;samNet+=amt;
-      byLeague[league].samWins++;byLeague[league].samNet+=amt;byLeague[league].mattLosses++;
+      samWins++;samNet+=amt;mattNet-=amt;
+      byLeague[league].samWins++;byLeague[league].samNet+=amt;byLeague[league].mattNet-=amt;byLeague[league].mattLosses++;
       if (!paid) unpaidBalance-=amt;
     }
 
     if (gameDate){
       var mk=gameDate.getFullYear()+'-'+String(gameDate.getMonth()+1).padStart(2,'0');
       if (!byMonth[mk]) byMonth[mk]={mattWins:0,mattLosses:0,samWins:0,samLosses:0,mattNet:0,samNet:0};
-      if (winner==='Matt'){byMonth[mk].mattWins++;byMonth[mk].mattNet+=amt;byMonth[mk].samLosses++;}
-      else{byMonth[mk].samWins++;byMonth[mk].samNet+=amt;byMonth[mk].mattLosses++;}
+      if (winner==='Matt'){byMonth[mk].mattWins++;byMonth[mk].mattNet+=amt;byMonth[mk].samNet-=amt;byMonth[mk].samLosses++;}
+      else{byMonth[mk].samWins++;byMonth[mk].samNet+=amt;byMonth[mk].mattNet-=amt;byMonth[mk].mattLosses++;}
     }
 
     if (gameDate&&gameDate>=weekStart){
       if (!byWeek[currentWeekKey]) byWeek[currentWeekKey]={mattWins:0,mattLosses:0,samWins:0,samLosses:0,mattNet:0,samNet:0};
-      if (winner==='Matt'){byWeek[currentWeekKey].mattWins++;byWeek[currentWeekKey].mattNet+=amt;byWeek[currentWeekKey].samLosses++;}
-      else{byWeek[currentWeekKey].samWins++;byWeek[currentWeekKey].samNet+=amt;byWeek[currentWeekKey].mattLosses++;}
+      if (winner==='Matt'){byWeek[currentWeekKey].mattWins++;byWeek[currentWeekKey].mattNet+=amt;byWeek[currentWeekKey].samNet-=amt;byWeek[currentWeekKey].samLosses++;}
+      else{byWeek[currentWeekKey].samWins++;byWeek[currentWeekKey].samNet+=amt;byWeek[currentWeekKey].mattNet-=amt;byWeek[currentWeekKey].mattLosses++;}
     }
   }
 

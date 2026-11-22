@@ -1078,8 +1078,40 @@ function doGet(e) {
   else if (action==='getGamesForDate') result=getGamesForDate(e.parameter.league, e.parameter.dateStr);
   else if (action==='getLiveScores') result=getLiveScores();
   else if (action==='getPayoutPeriodStats') result=getPayoutPeriodStats();
+  else if (action==='getTeamLogos') result=getTeamLogos(e.parameter.league);
   else result={error:'Unknown action'};
   return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Team names + ESPN logo paths for one league, for the logos on the game cards.
+// Rows: [displayName, shortDisplayName, location, nickname, abbreviation, logoPath].
+// Logo path drops the https://a.espncdn.com/ prefix to stay under the 100KB cache limit.
+function getTeamLogos(league) {
+  var sportKey = getEspnSportKey(league);
+  if (!sportKey || sportKey === 'golf') return [];
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'logos_' + league.replace(/\s/g, '_');
+  var cached = cache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+  try {
+    var url = 'https://site.api.espn.com/apis/site/v2/sports/' + sportKey + '/teams?limit=1000';
+    var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) return [];
+    var d = JSON.parse(resp.getContentText());
+    var teams = ((((d.sports || [])[0] || {}).leagues || [])[0] || {}).teams || [];
+    var out = [];
+    teams.forEach(function(t) {
+      t = t.team || {};
+      var logo = ((t.logos || [])[0] || {}).href || '';
+      if (!logo) return;
+      out.push([t.displayName || '', t.shortDisplayName || '', t.location || '', t.name || '',
+                t.abbreviation || '', logo.replace('https://a.espncdn.com/', '')]);
+    });
+    try { cache.put(cacheKey, JSON.stringify(out), 21600); } catch (e) {} // 6h
+    return out;
+  } catch (e) {
+    return [];
+  }
 }
 
 function doPost(e) {

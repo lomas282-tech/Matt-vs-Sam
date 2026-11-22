@@ -5,13 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0a0f">
+<meta name="theme-color" content="#070B14">
 <title>Sam vs Matt</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;--accent:#00e5a0;--accent2:#ff4d6d;--accent3:#ffd60a;--matt:#00e5a0;--sam:#4d9fff;--text:#f0f0f8;--muted:#6b6b8a;--card:#16161f;--radius:12px;}
+/* Midnight Gold palette. Matt = emerald, Sam = electric blue, gold = money/UI accent */
+:root{--bg:#070B14;--surface:#0E1424;--surface2:#151C30;--border:rgba(255,255,255,0.09);--accent:#F5C451;--accent2:#FF5A6E;--accent3:#F5C451;--gold:#F5C451;--pos:#22D3A0;--matt:#22D3A0;--sam:#4C8DFF;--text:#EEF2FA;--muted:#8A93A8;--card:#10172A;--radius:14px;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:15px;overscroll-behavior:none;}
 #loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity 0.4s;}
@@ -35,14 +38,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .period-toggle{display:flex;gap:6px;padding:14px 20px 0;}
 .period-btn{flex:1;padding:7px 0;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-align:center;transition:all 0.15s;}
 .period-btn.active{border-color:var(--accent);color:var(--accent);}
-.scoreboard{padding:14px 20px 20px;background:linear-gradient(180deg,rgba(0,229,160,0.04) 0%,transparent 100%);border-bottom:1px solid var(--border);}
+.scoreboard{padding:14px 20px 20px;background:transparent;border-bottom:1px solid var(--border);}
 .scoreboard-label{font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
 .vs-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;}
 .player-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px 12px;text-align:center;transition:border-color 0.3s;}
 .player-card.winning{border-color:var(--accent);}.player-card.losing{border-color:var(--accent2);}
+#mattCard.winning{border-color:var(--matt);box-shadow:0 0 0 1px var(--matt),0 6px 24px -8px rgba(34,211,160,0.45);}
+#samCard.winning{border-color:var(--sam);box-shadow:0 0 0 1px var(--sam),0 6px 24px -8px rgba(76,141,255,0.45);}
+.scoreboard-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;}
+.scoreboard-head .scoreboard-label{margin-bottom:0;}
+.last-updated{font-size:11px;color:var(--muted);}
 .player-name{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
 #mattCard .player-name{color:var(--matt);}#samCard .player-name{color:var(--sam);}
-.player-wins{font-size:36px;font-weight:600;line-height:1;margin:6px 0 2px;}
+.player-wins{font-family:'Barlow Condensed',sans-serif;font-size:46px;font-weight:900;line-height:1;margin:6px 0 2px;}
 .player-record{font-size:12px;color:var(--muted);}.player-net{font-size:13px;font-weight:600;margin-top:6px;}
 .vs-divider{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--muted);text-align:center;}
 .period-card{margin:14px 20px 0;padding:14px 16px;border-radius:var(--radius);background:var(--card);border:1px solid var(--border);}
@@ -60,8 +68,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .period-balance-label{font-size:12px;color:var(--muted);}
 .period-balance-val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;}
 .balance-banner{margin:14px 20px 0;padding:12px 16px;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;font-size:13px;}
-.balance-banner.owed{background:rgba(255,77,109,0.12);border:1px solid rgba(255,77,109,0.3);}
-.balance-banner.even{background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);}
+.balance-banner.owed{background:rgba(255,90,110,0.12);border:1px solid rgba(255,90,110,0.3);}
+.balance-banner.even{background:rgba(34,211,160,0.08);border:1px solid rgba(34,211,160,0.2);}
 .balance-label{color:var(--muted);font-size:12px;}
 .balance-amount{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
 .balance-banner.owed .balance-amount{color:var(--accent2);}.balance-banner.even .balance-amount{color:var(--accent);}
@@ -74,23 +82,24 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .game-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;}
 .game-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);}
 .game-card.pending::before{background:var(--accent3);}.game-card.complete::before{background:var(--accent);}
-.game-card.live-active{border-color:rgba(255,77,109,0.4);}
+.game-card.won-matt::before{background:var(--matt);}.game-card.won-sam::before{background:var(--sam);}.game-card.won-split::before{background:var(--accent3);}
+.game-card.live-active{border-color:rgba(255,90,110,0.4);}
 .game-card.live-active::before{background:var(--accent2);}
 .game-card:active{transform:scale(0.98);}
 .game-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
 .game-name{font-weight:600;font-size:14px;flex:1;margin-right:8px;}
 .game-badge{font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 7px;border-radius:4px;white-space:nowrap;text-transform:uppercase;}
-.badge-pending{background:rgba(255,214,10,0.15);color:var(--accent3);border:1px solid rgba(255,214,10,0.3);}
-.badge-live{background:rgba(255,77,109,0.2);color:var(--accent2);border:1px solid rgba(255,77,109,0.5);animation:pulse 1.4s infinite;}
-.badge-win{background:rgba(0,229,160,0.15);color:var(--accent);border:1px solid rgba(0,229,160,0.3);}
+.badge-pending{background:rgba(245,196,81,0.15);color:var(--accent3);border:1px solid rgba(245,196,81,0.3);}
+.badge-live{background:rgba(255,90,110,0.2);color:var(--accent2);border:1px solid rgba(255,90,110,0.5);animation:pulse 1.4s infinite;}
+.badge-win{background:rgba(34,211,160,0.15);color:var(--accent);border:1px solid rgba(34,211,160,0.3);}
 .picker-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:7px;}
 .picker-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:12px;transition:background 0.3s;}
-.picker-row.fav-row{background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.18);}
-.picker-row.dog-row{background:rgba(77,159,255,0.07);border:1px solid rgba(77,159,255,0.18);}
-.picker-row.fav-row.live-covering{background:rgba(0,229,160,0.18);border-color:rgba(0,229,160,0.5);}
-.picker-row.fav-row.live-losing{background:rgba(255,77,109,0.12);border-color:rgba(255,77,109,0.35);}
-.picker-row.dog-row.live-covering{background:rgba(0,229,160,0.18);border-color:rgba(0,229,160,0.5);}
-.picker-row.dog-row.live-losing{background:rgba(255,77,109,0.12);border-color:rgba(255,77,109,0.35);}
+.picker-row.fav-row{background:rgba(34,211,160,0.07);border:1px solid rgba(34,211,160,0.18);}
+.picker-row.dog-row{background:rgba(76,141,255,0.07);border:1px solid rgba(76,141,255,0.18);}
+.picker-row.fav-row.live-covering{background:rgba(34,211,160,0.18);border-color:rgba(34,211,160,0.5);}
+.picker-row.fav-row.live-losing{background:rgba(255,90,110,0.12);border-color:rgba(255,90,110,0.35);}
+.picker-row.dog-row.live-covering{background:rgba(34,211,160,0.18);border-color:rgba(34,211,160,0.5);}
+.picker-row.dog-row.live-losing{background:rgba(255,90,110,0.12);border-color:rgba(255,90,110,0.35);}
 .picker-name{font-weight:700;min-width:34px;font-size:13px;}
 .picker-name.matt{color:var(--matt);}.picker-name.sam{color:var(--sam);}
 .picker-arrow{color:var(--muted);font-size:11px;}
@@ -114,19 +123,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .pick-owner-name.matt{color:var(--matt);}.pick-owner-name.sam{color:var(--sam);}
 .picker-row.selected-pick{box-shadow:inset 0 0 0 1.5px currentColor;}
 .pick-check{font-size:12px;font-weight:900;color:var(--accent);}
-.live-inline{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.25);margin-bottom:7px;}
+.live-inline{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,90,110,0.08);border:1px solid rgba(255,90,110,0.25);margin-bottom:7px;}
 .live-inline-badge{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--accent2);animation:pulse 1.4s infinite;white-space:nowrap;}
 .live-inline-score{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;flex:1;text-align:center;letter-spacing:1px;}
 .live-inline-clock{font-size:11px;color:var(--muted);white-space:nowrap;}
 .game-meta{display:flex;gap:10px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
 .game-score{font-size:13px;font-weight:600;color:var(--text);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
 .winner-chip{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700;margin-left:6px;}
-.winner-chip.matt{background:rgba(0,229,160,0.15);color:var(--matt);}
-.winner-chip.sam{background:rgba(77,159,255,0.15);color:var(--sam);}
+.winner-chip.matt{background:rgba(34,211,160,0.15);color:var(--matt);}
+.winner-chip.sam{background:rgba(76,141,255,0.15);color:var(--sam);}
+.winner-chip.split{background:rgba(245,196,81,0.15);color:var(--accent3);}
 .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
 .empty-icon{font-size:40px;margin-bottom:12px;}.empty-text{font-size:14px;}
 .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px;}
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(10,10,15,0.95);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:100;}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(9,13,24,0.8);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:100;}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 6px;cursor:pointer;transition:color 0.2s;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;gap:4px;-webkit-user-select:none;user-select:none;}
 .nav-item.active{color:var(--accent);}.nav-icon{font-size:18px;line-height:1;}
 .view{display:none;}.view.active{display:block;}
@@ -140,16 +150,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .game-picker{background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;max-height:340px;overflow-y:auto;}
 .game-option{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;font-size:13px;}
 .game-option:last-child{border-bottom:none;}
-.game-option:active{background:rgba(0,229,160,0.1);}
+.game-option:active{background:rgba(245,196,81,0.1);}
 .game-option .go-label{font-weight:600;}
 .game-option .go-date{font-size:11px;color:var(--accent);font-weight:600;margin-bottom:2px;}
 .game-option .go-odds{font-size:11px;color:var(--muted);margin-top:2px;}
 .game-option .go-soon{font-size:10px;color:var(--accent3);font-weight:700;margin-top:2px;}
-.game-option.selected{background:rgba(0,229,160,0.1);border-left:3px solid var(--accent);}
+.game-option.selected{background:rgba(245,196,81,0.1);border-left:3px solid var(--accent);}
 .picker-loading{padding:16px;text-align:center;color:var(--muted);font-size:13px;}
 .market-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
 .market-pill{padding:8px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:var(--surface2);transition:all 0.15s;color:var(--muted);}
-.market-pill.selected{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,0.1);}
+.market-pill.selected{border-color:var(--accent);color:var(--accent);background:rgba(245,196,81,0.1);}
 .btn{width:100%;padding:14px;border:none;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;}
 .btn-primary{background:var(--accent);color:#000;}.btn-primary:active{transform:scale(0.97);filter:brightness(0.9);}
 .btn-danger{background:var(--accent2);color:#fff;}.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
@@ -175,8 +185,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .sheet-close{width:30px;height:30px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--muted);}
 .sheet-body{padding:16px 20px;}
 .winner-tag{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:600;margin-top:8px;}
-.winner-tag.matt{background:rgba(0,229,160,0.12);color:var(--matt);border:1px solid rgba(0,229,160,0.3);}
-.winner-tag.sam{background:rgba(77,159,255,0.12);color:var(--sam);border:1px solid rgba(77,159,255,0.3);}
+.winner-tag.matt{background:rgba(34,211,160,0.12);color:var(--matt);border:1px solid rgba(34,211,160,0.3);}
+.winner-tag.sam{background:rgba(76,141,255,0.12);color:var(--sam);border:1px solid rgba(76,141,255,0.3);}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px;}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
 .stat-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
@@ -190,7 +200,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .league-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;}
 .league-name{font-weight:600;font-size:14px;}
 .league-net{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
-.net-pos{color:var(--accent);}.net-neg{color:var(--accent2);}
+.net-pos{color:var(--pos);}.net-neg{color:var(--accent2);}
 .auto-container{padding:20px;}
 .auto-hero{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;margin-bottom:16px;}
 .auto-icon{font-size:48px;margin-bottom:12px;}
@@ -212,7 +222,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .payout-balance-row{border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between;align-items:center;}
 .payout-balance-label{font-size:13px;color:var(--muted);}
 .payout-balance-val{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;}
-.payout-due-box{background:rgba(255,214,10,0.06);border:1px solid rgba(255,214,10,0.3);border-radius:var(--radius);padding:16px;text-align:center;margin-bottom:16px;}
+.payout-due-box{background:rgba(245,196,81,0.06);border:1px solid rgba(245,196,81,0.3);border-radius:var(--radius);padding:16px;text-align:center;margin-bottom:16px;}
 .payout-due-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent3);margin-bottom:6px;}
 .payout-due-amount{font-family:'Barlow Condensed',sans-serif;font-size:56px;font-weight:900;color:var(--accent3);line-height:1;}
 .payout-due-sub{font-size:12px;color:var(--muted);margin-top:4px;}
@@ -221,8 +231,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .payout-game-name{font-size:13px;font-weight:600;}
 .payout-game-meta{font-size:11px;color:var(--muted);margin-top:2px;}
 .payout-game-winner{font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;}
-.payout-game-winner.matt{background:rgba(0,229,160,0.15);color:var(--matt);}
-.payout-game-winner.sam{background:rgba(77,159,255,0.15);color:var(--sam);}
+.payout-game-winner.matt{background:rgba(34,211,160,0.15);color:var(--matt);}
+.payout-game-winner.sam{background:rgba(76,141,255,0.15);color:var(--sam);}
 .no-payout-box{text-align:center;padding:28px 20px;color:var(--muted);}
 .no-payout-icon{font-size:44px;margin-bottom:10px;}
 .checkbox-row{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;}
@@ -230,17 +240,81 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .checkbox-box.checked{background:var(--accent);border-color:var(--accent);}
 .checkbox-box.checked::after{content:'✓';color:#000;font-size:12px;font-weight:700;}
 .checkbox-label{font-size:14px;}
+/* Steady-width digits so scores and money don't jump as they change */
+.player-wins,.player-net,.period-wl,.period-net,.balance-amount,.stat-value,.league-net,.payout-wl,.payout-due-amount,.live-inline-score,.result-count{font-variant-numeric:tabular-nums;}
+.nav-item{position:relative;}
+.nav-item.active::before{content:'';position:absolute;top:0;left:30%;right:30%;height:2px;border-radius:0 0 2px 2px;background:var(--accent);}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important;}}
+
+/* ══ Midnight Gold overhaul ══════════════════════════════════════════════ */
+body{background:radial-gradient(900px 520px at -10% -10%,rgba(34,211,160,0.13),transparent 60%),radial-gradient(900px 560px at 110% 0%,rgba(76,141,255,0.16),transparent 60%),radial-gradient(700px 480px at 50% 115%,rgba(245,196,81,0.07),transparent 60%),var(--bg);background-attachment:fixed;}
+#loader{background:radial-gradient(600px 400px at 50% 40%,rgba(76,141,255,0.14),transparent 70%),var(--bg);}
+#loader .logo-mark{width:88px;height:88px;margin-bottom:18px;filter:drop-shadow(0 18px 36px rgba(76,141,255,0.45));animation:pop .6s cubic-bezier(.2,1.4,.4,1) both;}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
+.loader-bar-inner{background:linear-gradient(90deg,var(--matt),var(--gold),var(--sam));}
+.header{background:rgba(7,11,20,0.72);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);position:relative;z-index:5;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{width:30px;height:30px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));}
+.header-title{font-size:22px;letter-spacing:0.5px;}
+.header-title .vs{color:var(--gold);font-size:13px;margin:0 5px;vertical-align:3px;letter-spacing:1px;}
+.sync-btn{background:rgba(255,255,255,0.05);color:var(--text);}
+.sync-btn svg{width:18px;height:18px;}
+.period-btn{background:rgba(255,255,255,0.04);border-color:var(--border);}
+.period-btn.active{background:linear-gradient(180deg,rgba(245,196,81,0.2),rgba(245,196,81,0.06));border-color:rgba(245,196,81,0.55);color:var(--gold);}
+/* frosted glass surfaces */
+.player-card,.game-card,.stat-card,.period-card,.league-row,.payout-hero,.auto-hero,.payout-game-row{background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 30px -20px rgba(0,0,0,0.9),inset 0 1px 0 rgba(255,255,255,0.06);}
+.player-card{position:relative;overflow:hidden;border-radius:20px;padding:18px 12px 16px;}
+.player-card::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;}
+#mattCard::before{background:linear-gradient(90deg,transparent,var(--matt),transparent);}
+#samCard::before{background:linear-gradient(90deg,transparent,var(--sam),transparent);}
+#mattCard.winning{background:linear-gradient(180deg,rgba(34,211,160,0.14),rgba(255,255,255,0.02));}
+#samCard.winning{background:linear-gradient(180deg,rgba(76,141,255,0.16),rgba(255,255,255,0.02));}
+.avatar{width:42px;height:42px;margin:0 auto 8px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:23px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.35);}
+.avatar.matt{background:linear-gradient(135deg,#43F2C2,#0E9F78);box-shadow:0 8px 20px -8px rgba(34,211,160,0.8);}
+.avatar.sam{background:linear-gradient(135deg,#76AAFF,#2B57D9);box-shadow:0 8px 20px -8px rgba(76,141,255,0.8);}
+.player-name{font-size:14px;letter-spacing:3px;}
+.player-wins{font-size:54px;color:var(--text);margin:8px 0 4px;}
+.vs-divider{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--gold);border:1px solid rgba(245,196,81,0.4);background:rgba(245,196,81,0.08);box-shadow:0 0 26px -6px rgba(245,196,81,0.55);}
+.period-card,.balance-banner{border-radius:18px;}
+.balance-banner.owed{background:linear-gradient(90deg,rgba(255,90,110,0.14),rgba(255,90,110,0.05));}
+.balance-banner.even{background:linear-gradient(90deg,rgba(34,211,160,0.12),rgba(34,211,160,0.04));}
+.payout-pill{background:linear-gradient(180deg,#FFD978,#E9AE36);color:#1a1205;box-shadow:0 0 18px -4px rgba(245,196,81,0.7);}
+.section-title{color:var(--text);opacity:0.65;}
+.game-card{border-radius:16px;}
+.game-card::before{width:4px;}
+.badge-win{color:var(--pos);}
+.badge-split{color:var(--gold);background:rgba(245,196,81,0.14);border-color:rgba(245,196,81,0.35);}
+.league-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);font-weight:600;font-size:10.5px;letter-spacing:0.3px;}
+.league-badge svg{width:12px;height:12px;color:var(--gold);}
+.btn{border-radius:14px;}
+.btn-primary{background:linear-gradient(180deg,#FFD978,#E9AE36);color:#1a1205;box-shadow:0 12px 26px -14px rgba(245,196,81,0.9),inset 0 1px 0 rgba(255,255,255,0.45);}
+.btn-danger{background:linear-gradient(180deg,#FF7486,#E8435A);box-shadow:0 12px 26px -14px rgba(255,90,110,0.9),inset 0 1px 0 rgba(255,255,255,0.25);}
+.btn-secondary{background:rgba(255,255,255,0.06);}
+.form-input,.form-select{background:rgba(255,255,255,0.05);border-radius:10px;}
+.form-input:focus,.form-select:focus{box-shadow:0 0 0 3px rgba(245,196,81,0.18);}
+.game-picker{background:rgba(255,255,255,0.035);}
+.modal-sheet,.confirm-box{background:linear-gradient(180deg,#131B30,#0B1120);}
+.payout-due-box{background:radial-gradient(400px 160px at 50% 0%,rgba(245,196,81,0.16),rgba(245,196,81,0.04));border-radius:18px;}
+.payout-due-amount{text-shadow:0 0 30px rgba(245,196,81,0.45);}
+.h2h-track{height:10px;border-radius:5px;}
+.h2h-fill{border-radius:5px;box-shadow:0 0 16px -2px rgba(76,141,255,0.5);}
+.auto-icon svg{width:54px;height:54px;color:var(--gold);filter:drop-shadow(0 0 14px rgba(245,196,81,0.5));}
+.bottom-nav{background:rgba(9,13,24,0.8);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);}
+.nav-icon svg{width:22px;height:22px;display:block;}
+.nav-item.active{color:var(--gold);}
+.nav-item.active::before{background:var(--gold);box-shadow:0 0 12px var(--gold);}
+.toast{background:rgba(19,27,48,0.92);backdrop-filter:blur(12px);border-radius:12px;}
 </style>
 </head>
 <body>
-<div id="loader"><div class="logo-text">SAM VS MATT</div><div class="sub">Bet Tracker</div><div class="loader-bar"><div class="loader-bar-inner"></div></div></div>
+<div id="loader"><img class="logo-mark" src="icon.svg" alt=""><div class="logo-text">SAM VS MATT</div><div class="sub">Bet Tracker</div><div class="loader-bar"><div class="loader-bar-inner"></div></div></div>
 
 <div id="app">
   <div class="header">
-    <div class="header-title"><span class="mc">MATT</span> VS <span class="sc">SAM</span></div>
+    <div class="brand"><img class="brand-mark" src="icon.svg" alt=""><div class="header-title"><span class="mc">MATT</span><span class="vs">VS</span><span class="sc">SAM</span></div></div>
     <div class="header-right">
       <span class="live-indicator" id="liveIndicator">● LIVE</span>
-      <div class="sync-btn" id="syncBtn" onclick="syncScores()">🔄</div>
+      <div class="sync-btn" id="syncBtn" onclick="syncScores()" title="Sync scores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.6-4.6L4 8M4 4v4h4M4 13a8 8 0 0 0 14.6 4.6L20 16M20 20v-4h-4"/></svg></div>
     </div>
   </div>
   <div class="scroll-content">
@@ -253,16 +327,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
         <div class="period-btn" id="btn-all" onclick="setPeriod('all')">All Time</div>
       </div>
       <div class="scoreboard">
-        <div class="scoreboard-label" id="recordLabel">This Week</div>
+        <div class="scoreboard-head"><div class="scoreboard-label" id="recordLabel">This Week</div><div class="last-updated" id="lastUpdated"></div></div>
         <div class="vs-grid">
-          <div class="player-card" id="mattCard"><div class="player-name">Matt</div><div class="player-wins" id="mattWins">—</div><div class="player-record" id="mattRecord">0-0</div><div class="player-net" id="mattNet">$0</div></div>
+          <div class="player-card" id="mattCard"><div class="avatar matt">M</div><div class="player-name">Matt</div><div class="player-wins" id="mattWins">—</div><div class="player-record" id="mattRecord">0-0</div><div class="player-net" id="mattNet">$0</div></div>
           <div class="vs-divider">VS</div>
-          <div class="player-card" id="samCard"><div class="player-name">Sam</div><div class="player-wins" id="samWins">—</div><div class="player-record" id="samRecord">0-0</div><div class="player-net" id="samNet">$0</div></div>
+          <div class="player-card" id="samCard"><div class="avatar sam">S</div><div class="player-name">Sam</div><div class="player-wins" id="samWins">—</div><div class="player-record" id="samRecord">0-0</div><div class="player-net" id="samNet">$0</div></div>
         </div>
       </div>
       <div class="period-card" id="periodCard" style="display:none">
         <div class="period-card-header">
-          <div class="period-card-title">📋 Current Payout Period</div>
+          <div class="period-card-title">Current Payout Period</div>
           <div class="period-age" id="periodAge"></div>
         </div>
         <div class="period-row">
@@ -337,8 +411,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
     <!-- AUTO -->
     <div class="view" id="view-auto">
       <div class="auto-container">
-        <div class="auto-hero"><div class="auto-icon">⚡</div><div class="auto-title">Auto Score Fetch</div><div class="auto-desc">Fetches final scores from ESPN and updates all pending games automatically.</div></div>
-        <button class="btn btn-primary" id="autoBtn" onclick="runAutoUpdate()">🔄 Fetch &amp; Update All Scores</button>
+        <div class="auto-hero"><div class="auto-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div><div class="auto-title">Auto Score Fetch</div><div class="auto-desc">Fetches final scores from ESPN and updates all pending games automatically.</div></div>
+        <button class="btn btn-primary" id="autoBtn" onclick="runAutoUpdate()">Fetch &amp; Update All Scores</button>
         <div class="auto-result" id="autoResult"></div>
       </div>
     </div>
@@ -353,11 +427,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
   </div>
 
   <div class="bottom-nav">
-    <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><div class="nav-icon">🏠</div><div>Home</div></div>
-    <div class="nav-item" id="nav-add" onclick="switchTab('add')"><div class="nav-icon">➕</div><div>Add</div></div>
-    <div class="nav-item" id="nav-stats" onclick="switchTab('stats')"><div class="nav-icon">📊</div><div>Stats</div></div>
-    <div class="nav-item" id="nav-auto" onclick="switchTab('auto')"><div class="nav-icon">⚡</div><div>Auto</div></div>
-    <div class="nav-item" id="nav-payout" onclick="switchTab('payout')"><div class="nav-icon">💰</div><div>Payout</div></div>
+    <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></div><div>Home</div></div>
+    <div class="nav-item" id="nav-add" onclick="switchTab('add')"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></div><div>Add</div></div>
+    <div class="nav-item" id="nav-stats" onclick="switchTab('stats')"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-6M3 20h18"/></svg></div><div>Stats</div></div>
+    <div class="nav-item" id="nav-auto" onclick="switchTab('auto')"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div><div>Auto</div></div>
+    <div class="nav-item" id="nav-payout" onclick="switchTab('payout')"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2.5"/><path d="M3 10h18M16 15h2"/></svg></div><div>Payout</div></div>
   </div>
 </div>
 
@@ -371,7 +445,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
       <div class="form-group"><label class="form-label">Final Score</label><input type="text" class="form-input" id="editScore" placeholder="e.g. Duke 81-58" oninput="previewWinner()"></div>
       <div id="winnerPreview" style="margin-bottom:12px;display:none"></div>
       <div class="form-row" style="margin-bottom:16px">
-        <div class="form-group" style="margin:0"><label class="form-label">Winner</label><select class="form-select" id="editWinner"><option value="">-- TBD --</option><option value="Matt">Matt</option><option value="Sam">Sam</option></select></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Winner</label><select class="form-select" id="editWinner"><option value="">-- TBD --</option><option value="Matt">Matt</option><option value="Sam">Sam</option><option value="Split">Split (no money)</option></select></div>
         <div class="form-group" style="margin:0"><label class="form-label">Amt Won ($)</label><input type="number" class="form-input" id="editAmt" placeholder="5"></div>
       </div>
       <div class="checkbox-row" onclick="togglePaid()"><div class="checkbox-box" id="paidBox"></div><div class="checkbox-label">Marked as paid out</div></div>
@@ -387,7 +461,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 <!-- PAYOUT CONFIRM -->
 <div class="confirm-overlay" id="confirmModal">
   <div class="confirm-box">
-    <div class="confirm-title">💰 Process Payout?</div>
+    <div class="confirm-title">Process Payout?</div>
     <div class="confirm-msg" id="confirmMsg"></div>
     <div class="confirm-amount" id="confirmAmount">$0</div>
     <div class="confirm-sub" id="confirmSub"></div>
@@ -407,6 +481,19 @@ let _paidChecked=false,_balanceData=null,_currentPeriod='week';
 let _liveInterval=null,_liveData=[],_payoutStats=null;
 let _pendingGames=[];
 let _cachedGames=[];  // full game list cache to avoid re-fetching on live poll
+// Signed money for net figures: +$74.00 / −$74.00 / $0.00
+// League badge: small line icon + league name
+const LEAGUE_ICONS={
+  football:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-45 12 12)"/><path d="M9.5 14.5l5-5M11 11l2 2M12.5 9.5l2 2M9.5 12.5l2 2"/></svg>',
+  basketball:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2v20M5 5c3 3 3 11 0 14M19 5c-3 3-3 11 0 14"/></svg>',
+  hockey:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l7 13h6"/><ellipse cx="7" cy="19" rx="4" ry="1.8"/></svg>',
+  baseball:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 4.8c2 2.2 2 12.2 0 14.4M18 4.8c-2 2.2-2 12.2 0 14.4"/></svg>',
+  soccer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7.5l4 2.9-1.5 4.6h-5L8 10.4z"/></svg>',
+  golf:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21V3l9 4-9 4M5 21h7"/></svg>',
+  trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8M10 17h4"/></svg>'
+};
+function leagueBadge(l){l=l||'';const k=/NFL|NCAA F/.test(l)?'football':/MBB|WBB|NBA/.test(l)?'basketball':/NHL|NCAA MH/.test(l)?'hockey':/MLB/.test(l)?'baseball':/Golf|PGA/i.test(l)?'golf':/League|Cup|Soccer|EPL/i.test(l)?'soccer':'trophy';return `<span class="league-badge">${LEAGUE_ICONS[k]}${l}</span>`;}
+function signedMoney(n){n=Number(n)||0;const s=n>0?'+':n<0?'−':'';return s+'$'+Math.abs(n).toFixed(2);}
 
 // Parse a fetch Response as JSON, but fail loudly if the body isn't JSON.
 // Apps Script returns an HTML login/redirect or error page (not JSON) when the
@@ -490,6 +577,7 @@ async function loadHome(){
     _balanceData=balanceR.value;
     renderScoreboard(balanceR.value);
     renderBalance(balanceR.value);
+    document.getElementById('lastUpdated').textContent='Updated '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
   }
   if(periodR.status==='fulfilled'){
     renderPeriodCard(periodR.value);
@@ -636,10 +724,10 @@ function renderScoreboard(b){
   document.getElementById('recordLabel').textContent=pd?pd.label:'All Time';
   document.getElementById('mattWins').textContent=mattW;document.getElementById('samWins').textContent=samW;
   document.getElementById('mattRecord').textContent=`${mattW}-${mattL} W-L`;document.getElementById('samRecord').textContent=`${samW}-${samL} W-L`;
-  document.getElementById('mattNet').textContent=(mattNet>=0?'+':'')+'$'+mattNet.toFixed(2);document.getElementById('samNet').textContent=(samNet>=0?'+':'')+'$'+samNet.toFixed(2);
+  document.getElementById('mattNet').textContent=signedMoney(mattNet);document.getElementById('samNet').textContent=signedMoney(samNet);
   document.getElementById('mattNet').style.color=mattNet>=0?'var(--matt)':'var(--accent2)';document.getElementById('samNet').style.color=samNet>=0?'var(--sam)':'var(--accent2)';
-  document.getElementById('mattCard').className='player-card'+(mattW>samW?' winning':mattW<samW?' losing':'');
-  document.getElementById('samCard').className='player-card'+(samW>mattW?' winning':samW<mattW?' losing':'');
+  document.getElementById('mattCard').className='player-card'+(mattW>samW?' winning':'');
+  document.getElementById('samCard').className='player-card'+(samW>mattW?' winning':'');
 }
 
 function renderPeriodCard(p){
@@ -648,9 +736,9 @@ function renderPeriodCard(p){
   card.style.display='block';
   document.getElementById('periodMattWL').textContent=`${p.mattWins}-${p.mattLosses}`;
   document.getElementById('periodSamWL').textContent=`${p.samWins}-${p.samLosses}`;
-  document.getElementById('periodMattNet').textContent=(p.mattNet>=0?'+':'')+'$'+p.mattNet.toFixed(2);
+  document.getElementById('periodMattNet').textContent=signedMoney(p.mattNet);
   document.getElementById('periodMattNet').style.color=p.mattNet>=0?'var(--matt)':'var(--accent2)';
-  document.getElementById('periodSamNet').textContent=(p.samNet>=0?'+':'')+'$'+p.samNet.toFixed(2);
+  document.getElementById('periodSamNet').textContent=signedMoney(p.samNet);
   document.getElementById('periodSamNet').style.color=p.samNet>=0?'var(--sam)':'var(--accent2)';
   const abs=Math.abs(p.unpaidBalance||0);
   document.getElementById('periodBalanceLabel').textContent=abs<0.01?'All Square':`${p.owes} owes ${p.owed}`;
@@ -699,7 +787,7 @@ function renderGames(games,liveMap){
     // Detect O/U total bet from odds column marker
     const isTotal=(g.odds||'').toString().startsWith('O/U');
     // live-active gets a special card style; pending without live data gets pending style
-    const cls=isLive?'pending live-active':isPending?'pending':'complete';
+    const cls=isLive?'pending live-active':isPending?'pending':'complete'+(g.winner?' won-'+g.winner.toLowerCase():'');
     const favPicker=g.favorite||'—',dogPicker=favPicker==='Matt'?'Sam':'Matt';
     const parts=(g.game||'').split(' vs ');
     const favTeam=parts[0]?parts[0].trim():'—',dogTeam=parts[1]?parts[1].trim():'—';
@@ -730,10 +818,10 @@ function renderGames(games,liveMap){
       ?'<span class="game-badge badge-live">● LIVE</span>'
       :isPending
         ?'<span class="game-badge badge-pending">Pending</span>'
-        :`<span class="game-badge badge-win">${g.winner||'?'} ✓</span>`;
+        :`<span class="game-badge badge-win${g.winner==='Split'?' badge-split':''}">${g.winner||'?'} ✓</span>`;
 
     const winnerChip=hasFinal&&g.winner?`<span class="winner-chip ${g.winner.toLowerCase()}">${g.winner}</span>`:'';
-    const scoreHtml=hasFinal?`<div class="game-score">📊 ${g.finalScore}${winnerChip}${g.paidOut?' <span style="color:var(--muted);font-size:11px">· 💵 Paid</span>':''}</div>`:'';
+    const scoreHtml=hasFinal?`<div class="game-score">${g.finalScore}${winnerChip}${g.paidOut?' <span style="color:var(--muted);font-size:11px">· 💵 Paid</span>':''}</div>`:'';
     const timeStr=g.time?` · ${g.time} CT`:'';
     const ctDisplay=g.commenceTime?utcToCentralDisplay(g.commenceTime):'';
     const timeDisplay=ctDisplay?` · ${ctDisplay} CT`:timeStr;
@@ -769,7 +857,7 @@ function renderGames(games,liveMap){
         </div>
       </div>
       ${liveHtml}
-      <div class="game-meta"><span>${g.date}${timeDisplay}</span><span>${g.league}</span>${g.amtWon?`<span>$${g.amtWon}</span>`:''}</div>
+      <div class="game-meta"><span>${g.date}${timeDisplay}</span>${leagueBadge(g.league)}${g.amtWon?`<span>$${g.amtWon}</span>`:''}</div>
       ${scoreHtml}
     </div>`;
   }).join('');
@@ -795,11 +883,11 @@ function renderPayoutTab(p){
   let duebox='';
   if(payout>=20){
     duebox=`<div class="payout-due-box">
-      <div class="payout-due-label">💸 Payout Due</div>
+      <div class="payout-due-label">Payout Due</div>
       <div class="payout-due-amount">$${payout}</div>
       <div class="payout-due-sub">${p.owes} owes ${p.owed} · ${Math.floor(abs/20)} × $20</div>
     </div>
-    <button class="btn btn-danger" onclick="showConfirm()" style="margin-bottom:20px">💰 Process $${payout} Payout</button>`;
+    <button class="btn btn-danger" onclick="showConfirm()" style="margin-bottom:20px">Process $${payout} Payout</button>`;
   } else {
     const remaining=(20-abs).toFixed(2);
     duebox=`<div class="no-payout-box">
@@ -823,13 +911,13 @@ function renderPayoutTab(p){
         <div class="payout-player">
           <div class="payout-player-name matt">Matt</div>
           <div class="payout-wl" style="color:var(--matt)">${p.mattWins}-${p.mattLosses}</div>
-          <div class="payout-net" style="color:${(p.mattNet||0)>=0?'var(--matt)':'var(--accent2)'}">${(p.mattNet||0)>=0?'+':''}$${(p.mattNet||0).toFixed(2)}</div>
+          <div class="payout-net" style="color:${(p.mattNet||0)>=0?'var(--matt)':'var(--accent2)'}">${signedMoney(p.mattNet)}</div>
         </div>
         <div class="vs-divider">VS</div>
         <div class="payout-player">
           <div class="payout-player-name sam">Sam</div>
           <div class="payout-wl" style="color:var(--sam)">${p.samWins}-${p.samLosses}</div>
-          <div class="payout-net" style="color:${(p.samNet||0)>=0?'var(--sam)':'var(--accent2)'}">${(p.samNet||0)>=0?'+':''}$${(p.samNet||0).toFixed(2)}</div>
+          <div class="payout-net" style="color:${(p.samNet||0)>=0?'var(--sam)':'var(--accent2)'}">${signedMoney(p.samNet)}</div>
         </div>
       </div>
       <div class="payout-balance-row">
@@ -871,14 +959,14 @@ async function loadStats(){
     document.getElementById('statsGrid').innerHTML=`
       <div class="stat-card"><div class="stat-label">Matt Wins</div><div class="stat-value" style="color:var(--matt)">${b.mattWins||0}</div><div class="stat-sub">${mattL} losses</div></div>
       <div class="stat-card"><div class="stat-label">Sam Wins</div><div class="stat-value" style="color:var(--sam)">${b.samWins||0}</div><div class="stat-sub">${samL} losses</div></div>
-      <div class="stat-card"><div class="stat-label">Matt Net</div><div class="stat-value ${(b.mattNet||0)>=0?'net-pos':'net-neg'}">${(b.mattNet||0)>=0?'+':''}$${(b.mattNet||0).toFixed(2)}</div><div class="stat-sub">All time</div></div>
-      <div class="stat-card"><div class="stat-label">Sam Net</div><div class="stat-value ${(b.samNet||0)>=0?'net-pos':'net-neg'}">${(b.samNet||0)>=0?'+':''}$${(b.samNet||0).toFixed(2)}</div><div class="stat-sub">All time</div></div>
+      <div class="stat-card"><div class="stat-label">Matt Net</div><div class="stat-value ${(b.mattNet||0)>=0?'net-pos':'net-neg'}">${signedMoney(b.mattNet)}</div><div class="stat-sub">All time</div></div>
+      <div class="stat-card"><div class="stat-label">Sam Net</div><div class="stat-value ${(b.samNet||0)>=0?'net-pos':'net-neg'}">${signedMoney(b.samNet)}</div><div class="stat-sub">All time</div></div>
       <div class="stat-card"><div class="stat-label">Unpaid</div><div class="stat-value" style="color:var(--accent3)">$${Math.abs(b.unpaidBalance||0).toFixed(2)}</div><div class="stat-sub">${(b.unpaidBalance||0)===0?'Even':(b.owes+' owes')}</div></div>
       <div class="stat-card"><div class="stat-label">Payout Due</div><div class="stat-value" style="color:${(b.payoutDue||0)>=20?'var(--accent3)':'var(--muted)'}">$${b.payoutDue||0}</div><div class="stat-sub">${(b.payoutDue||0)>=20?'🔔 Due now':'Not yet'}</div></div>`;
     if(b.byLeague&&Object.keys(b.byLeague).length){
       document.getElementById('leagueList').innerHTML=Object.entries(b.byLeague).sort((a,b2)=>Math.abs(b2[1].mattNet)-Math.abs(a[1].mattNet)).map(([league,d])=>`
         <div class="league-row"><div><div class="league-name">${league}</div><div style="font-size:12px;color:var(--matt)">${d.mattWins}-${d.mattLosses} Matt</div><div style="font-size:12px;color:var(--sam)">${d.samWins}-${d.samLosses} Sam</div></div>
-        <div class="league-net ${d.mattNet>=0?'net-pos':'net-neg'}">${d.mattNet>=0?'+':''}$${d.mattNet}<div style="font-size:11px;color:var(--muted);font-weight:400">Matt net</div></div></div>`).join('');
+        <div class="league-net ${d.mattNet>=0?'net-pos':'net-neg'}">${signedMoney(d.mattNet)}<div style="font-size:11px;color:var(--muted);font-weight:400">Matt net</div></div></div>`).join('');
     }else{document.getElementById('leagueList').innerHTML='<div class="empty-state"><div class="empty-text">No data yet</div></div>';}
   }catch(e){console.error(e);}
 }
@@ -944,8 +1032,15 @@ async function fetchGames(force){
   document.getElementById('marketGroup').style.display='none';_allGames=[];_selectedGameIdx=-1;_selectedMktIdx=-1;
   try{
     const games=await apiGet('getGamesForLeague',{league},ODDS_TIMEOUT_MS);
-    // Only cache real results — never cache errors or empty pulls.
-    if(games&&games.length&&!(games[0]&&games[0].error)) writeGamesCache(league,games);
+    const isError=!games||!games.length||(games[0]&&games[0].error);
+    if(isError){
+      // Backend couldn't get fresh odds. Show saved odds if we have any.
+      const stale=readGamesCacheStale(league);
+      if(stale){renderGamesPicker(stale);showToast('Showing saved odds — tap Refresh for latest','error');return;}
+      renderGamesPicker(games); // shows the friendly "temporarily unavailable" message
+      return;
+    }
+    writeGamesCache(league,games); // only cache real results
     renderGamesPicker(games);
   }catch(e){
     // On timeout/network error, fall back to any cached copy (even if stale)
@@ -1062,7 +1157,7 @@ async function previewWinner(){
     if(!r){prev.style.display='none';return;}
     prev.style.display='block';
     if(r.isPush){
-      prev.innerHTML=`<div class="winner-tag" style="background:rgba(255,214,10,0.12);color:var(--accent3);border:1px solid rgba(255,214,10,0.3)">🤝 Push — landed exactly on the line → <strong>Split (no money)</strong></div>`;
+      prev.innerHTML=`<div class="winner-tag" style="background:rgba(245,196,81,0.12);color:var(--accent3);border:1px solid rgba(245,196,81,0.3)">🤝 Push — landed exactly on the line → <strong>Split (no money)</strong></div>`;
     } else if(isTotal){
       const isMatt=r.winner==='Matt';
       const totalScored=r.margin;
@@ -1086,11 +1181,11 @@ async function runAutoUpdate(){
   const btn=document.getElementById('autoBtn'),result=document.getElementById('autoResult');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Fetching...';result.className='auto-result';result.style.display='none';
   try{
-    const r=await apiPost('autoUpdateScores');btn.disabled=false;btn.innerHTML='🔄 Fetch &amp; Update All Scores';
+    const r=await apiPost('autoUpdateScores');btn.disabled=false;btn.innerHTML='Fetch &amp; Update All Scores';
     result.className='auto-result show '+(r.updated>0?'success':'');
     result.innerHTML=`<div class="result-count">${r.updated}</div><div class="result-label">games updated · ${r.pending} total pending</div>${r.errors&&r.errors.length?`<div style="color:var(--accent2);margin-top:8px;font-size:12px">${r.errors.join('<br>')}</div>`:''}${r.updated===0?`<div style="color:var(--muted);margin-top:6px;font-size:13px">No completed games found yet.</div>`:''}`;
     if(r.updated>0){showToast(`✅ Updated ${r.updated} game${r.updated>1?'s':''}`, 'success');loadHome();}
-  }catch(e){btn.disabled=false;btn.innerHTML='🔄 Fetch &amp; Update All Scores';result.className='auto-result show error';result.innerHTML=`<div style="color:var(--accent2)">Error: ${e.message}</div>`;}
+  }catch(e){btn.disabled=false;btn.innerHTML='Fetch &amp; Update All Scores';result.className='auto-result show error';result.innerHTML=`<div style="color:var(--accent2)">Error: ${e.message}</div>`;}
 }
 
 async function syncScores(){

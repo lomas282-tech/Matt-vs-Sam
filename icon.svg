@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.38" r="0.75">
+      <stop offset="0" stop-color="#2A0A0E"/><stop offset="0.6" stop-color="#0D0D10"/><stop offset="1" stop-color="#050506"/>
+    </radialGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#FF4A57"/><stop offset="1" stop-color="#A80D1A"/>
+    </linearGradient>
+    <linearGradient id="blk" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#3A3A42"/><stop offset="1" stop-color="#050506"/>
+    </linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#BFC4CC"/>
+    </linearGradient>
+    <clipPath id="left"><rect x="0" y="0" width="256" height="512"/></clipPath>
+    <clipPath id="right"><rect x="256" y="0" width="256" height="512"/></clipPath>
+    <clipPath id="round"><rect width="512" height="512" rx="112"/></clipPath>
+    <path id="shield" d="M256 40 L448 104 V250 C448 368 364 440 256 476 C148 440 64 368 64 250 V104 Z"/>
+  </defs>
+  <g clip-path="url(#round)">
+    <rect width="512" height="512" fill="url(#bg)"/>
+  </g>
+  <g transform="translate(256 262) scale(0.86) translate(-256 -258)">
+    <use href="#shield" fill="url(#red)" clip-path="url(#left)"/>
+    <use href="#shield" fill="url(#blk)" clip-path="url(#right)"/>
+    <use href="#shield" fill="none" stroke="url(#silver)" stroke-width="14" stroke-linejoin="round"/>
+    <line x1="256" y1="48" x2="256" y2="470" stroke="#fff" stroke-width="8"/>
+    <path d="M108 318 V188 L166 258 L224 188 V318" fill="none" stroke="#fff" stroke-width="34" stroke-linejoin="miter" stroke-miterlimit="2.2"/>
+    <path d="M408 198 H318 Q292 198 292 224 V230 Q292 256 318 256 H378 Q404 256 404 282 V290 Q404 316 378 316 H286" fill="none" stroke="url(#silver)" stroke-width="34"/>
+  </g>
+</svg>

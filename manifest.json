@@ -6,8 +6,8 @@
   "scope": "/Matt-vs-Sam/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#070B14",
-  "theme_color": "#070B14",
+  "background_color": "#09090B",
+  "theme_color": "#09090B",
   "icons": [
     {
       "src": "icon-192.png",

@@ -789,8 +789,10 @@ function buildLiveMap(liveGames,pendingGames){
 function getPeriodData(b){
   if(!b) return null;
   const now=new Date();
-  if(_currentPeriod==='week'){const wk=b.currentWeekKey;return{data:wk&&b.byWeek&&b.byWeek[wk]?b.byWeek[wk]:null,label:'This Week'};}
-  if(_currentPeriod==='month'){const mk=b.currentMonthKey;return{data:mk&&b.byMonth&&b.byMonth[mk]?b.byMonth[mk]:null,label:now.toLocaleString('default',{month:'long',year:'numeric'})};}
+  // No settled games yet in the period = 0-0, not a fallback to all-time
+  const empty={mattWins:0,mattLosses:0,samWins:0,samLosses:0,mattNet:0,samNet:0};
+  if(_currentPeriod==='week'){const wk=b.currentWeekKey;return{data:wk&&b.byWeek&&b.byWeek[wk]?b.byWeek[wk]:empty,label:'This Week'};}
+  if(_currentPeriod==='month'){const mk=b.currentMonthKey;return{data:mk&&b.byMonth&&b.byMonth[mk]?b.byMonth[mk]:empty,label:now.toLocaleString('default',{month:'long',year:'numeric'})};}
   return{data:null,label:'All Time'};
 }
 

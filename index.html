@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#070B14">
+<meta name="theme-color" content="#09090B">
 <title>Sam vs Matt</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Midnight Gold palette. Matt = emerald, Sam = electric blue, gold = money/UI accent */
-:root{--bg:#070B14;--surface:#0E1424;--surface2:#151C30;--border:rgba(255,255,255,0.09);--accent:#F5C451;--accent2:#FF5A6E;--accent3:#F5C451;--gold:#F5C451;--pos:#22D3A0;--matt:#22D3A0;--sam:#4C8DFF;--text:#EEF2FA;--muted:#8A93A8;--card:#10172A;--radius:14px;}
+/* Blackout Red palette. Matt = red, Sam = black (silver lettering) */
+:root{--bg:#09090B;--surface:#131316;--surface2:#1B1B20;--border:rgba(255,255,255,0.08);--accent:#FF3344;--accent2:#FF8A3D;--accent3:#F5B83D;--gold:#F5B83D;--pos:#3DDC97;--matt:#FF3344;--sam:#E4E7EC;--text:#F4F4F6;--muted:#8E8E99;--card:#121215;--radius:14px;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:15px;overscroll-behavior:none;}
 #loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity 0.4s;}
@@ -43,8 +43,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .vs-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;}
 .player-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px 12px;text-align:center;transition:border-color 0.3s;}
 .player-card.winning{border-color:var(--accent);}.player-card.losing{border-color:var(--accent2);}
-#mattCard.winning{border-color:var(--matt);box-shadow:0 0 0 1px var(--matt),0 6px 24px -8px rgba(34,211,160,0.45);}
-#samCard.winning{border-color:var(--sam);box-shadow:0 0 0 1px var(--sam),0 6px 24px -8px rgba(76,141,255,0.45);}
+#mattCard.winning{border-color:var(--matt);box-shadow:0 0 0 1px var(--matt),0 6px 24px -8px rgba(255,51,68,0.45);}
+#samCard.winning{border-color:var(--sam);box-shadow:0 0 0 1px var(--sam),0 6px 24px -8px rgba(228,231,236,0.45);}
 .scoreboard-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;}
 .scoreboard-head .scoreboard-label{margin-bottom:0;}
 .last-updated{font-size:11px;color:var(--muted);}
@@ -68,8 +68,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .period-balance-label{font-size:12px;color:var(--muted);}
 .period-balance-val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;}
 .balance-banner{margin:14px 20px 0;padding:12px 16px;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;font-size:13px;}
-.balance-banner.owed{background:rgba(255,90,110,0.12);border:1px solid rgba(255,90,110,0.3);}
-.balance-banner.even{background:rgba(34,211,160,0.08);border:1px solid rgba(34,211,160,0.2);}
+.balance-banner.owed{background:rgba(255,138,61,0.12);border:1px solid rgba(255,138,61,0.3);}
+.balance-banner.even{background:rgba(255,51,68,0.08);border:1px solid rgba(255,51,68,0.2);}
 .balance-label{color:var(--muted);font-size:12px;}
 .balance-amount{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;}
 .balance-banner.owed .balance-amount{color:var(--accent2);}.balance-banner.even .balance-amount{color:var(--accent);}
@@ -83,23 +83,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .game-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);}
 .game-card.pending::before{background:var(--accent3);}.game-card.complete::before{background:var(--accent);}
 .game-card.won-matt::before{background:var(--matt);}.game-card.won-sam::before{background:var(--sam);}.game-card.won-split::before{background:var(--accent3);}
-.game-card.live-active{border-color:rgba(255,90,110,0.4);}
+.game-card.live-active{border-color:rgba(255,138,61,0.4);}
 .game-card.live-active::before{background:var(--accent2);}
 .game-card:active{transform:scale(0.98);}
 .game-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
 .game-name{font-weight:600;font-size:14px;flex:1;margin-right:8px;}
 .game-badge{font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 7px;border-radius:4px;white-space:nowrap;text-transform:uppercase;}
-.badge-pending{background:rgba(245,196,81,0.15);color:var(--accent3);border:1px solid rgba(245,196,81,0.3);}
-.badge-live{background:rgba(255,90,110,0.2);color:var(--accent2);border:1px solid rgba(255,90,110,0.5);animation:pulse 1.4s infinite;}
-.badge-win{background:rgba(34,211,160,0.15);color:var(--accent);border:1px solid rgba(34,211,160,0.3);}
+.badge-pending{background:rgba(245,184,61,0.15);color:var(--accent3);border:1px solid rgba(245,184,61,0.3);}
+.badge-live{background:rgba(255,138,61,0.2);color:var(--accent2);border:1px solid rgba(255,138,61,0.5);animation:pulse 1.4s infinite;}
+.badge-win{background:rgba(255,51,68,0.15);color:var(--accent);border:1px solid rgba(255,51,68,0.3);}
 .picker-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:7px;}
 .picker-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:12px;transition:background 0.3s;}
-.picker-row.fav-row{background:rgba(34,211,160,0.07);border:1px solid rgba(34,211,160,0.18);}
-.picker-row.dog-row{background:rgba(76,141,255,0.07);border:1px solid rgba(76,141,255,0.18);}
-.picker-row.fav-row.live-covering{background:rgba(34,211,160,0.18);border-color:rgba(34,211,160,0.5);}
-.picker-row.fav-row.live-losing{background:rgba(255,90,110,0.12);border-color:rgba(255,90,110,0.35);}
-.picker-row.dog-row.live-covering{background:rgba(34,211,160,0.18);border-color:rgba(34,211,160,0.5);}
-.picker-row.dog-row.live-losing{background:rgba(255,90,110,0.12);border-color:rgba(255,90,110,0.35);}
+.picker-row.fav-row{background:rgba(255,51,68,0.07);border:1px solid rgba(255,51,68,0.18);}
+.picker-row.dog-row{background:rgba(228,231,236,0.07);border:1px solid rgba(228,231,236,0.18);}
+.picker-row.fav-row.live-covering{background:rgba(255,51,68,0.18);border-color:rgba(255,51,68,0.5);}
+.picker-row.fav-row.live-losing{background:rgba(255,138,61,0.12);border-color:rgba(255,138,61,0.35);}
+.picker-row.dog-row.live-covering{background:rgba(255,51,68,0.18);border-color:rgba(255,51,68,0.5);}
+.picker-row.dog-row.live-losing{background:rgba(255,138,61,0.12);border-color:rgba(255,138,61,0.35);}
 .picker-name{font-weight:700;min-width:34px;font-size:13px;}
 .picker-name.matt{color:var(--matt);}.picker-name.sam{color:var(--sam);}
 .picker-arrow{color:var(--muted);font-size:11px;}
@@ -123,20 +123,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .pick-owner-name.matt{color:var(--matt);}.pick-owner-name.sam{color:var(--sam);}
 .picker-row.selected-pick{box-shadow:inset 0 0 0 1.5px currentColor;}
 .pick-check{font-size:12px;font-weight:900;color:var(--accent);}
-.live-inline{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,90,110,0.08);border:1px solid rgba(255,90,110,0.25);margin-bottom:7px;}
+.live-inline{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,138,61,0.08);border:1px solid rgba(255,138,61,0.25);margin-bottom:7px;}
 .live-inline-badge{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--accent2);animation:pulse 1.4s infinite;white-space:nowrap;}
 .live-inline-score{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;flex:1;text-align:center;letter-spacing:1px;}
 .live-inline-clock{font-size:11px;color:var(--muted);white-space:nowrap;}
 .game-meta{display:flex;gap:10px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
 .game-score{font-size:13px;font-weight:600;color:var(--text);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
 .winner-chip{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700;margin-left:6px;}
-.winner-chip.matt{background:rgba(34,211,160,0.15);color:var(--matt);}
-.winner-chip.sam{background:rgba(76,141,255,0.15);color:var(--sam);}
-.winner-chip.split{background:rgba(245,196,81,0.15);color:var(--accent3);}
+.winner-chip.matt{background:rgba(255,51,68,0.15);color:var(--matt);}
+.winner-chip.sam{background:rgba(228,231,236,0.15);color:var(--sam);}
+.winner-chip.split{background:rgba(245,184,61,0.15);color:var(--accent3);}
 .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
 .empty-icon{font-size:40px;margin-bottom:12px;}.empty-text{font-size:14px;}
 .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px;}
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(9,13,24,0.8);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:100;}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(12,12,14,0.8);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:100;}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 6px;cursor:pointer;transition:color 0.2s;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;gap:4px;-webkit-user-select:none;user-select:none;}
 .nav-item.active{color:var(--accent);}.nav-icon{font-size:18px;line-height:1;}
 .view{display:none;}.view.active{display:block;}
@@ -150,16 +150,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .game-picker{background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden;max-height:340px;overflow-y:auto;}
 .game-option{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;font-size:13px;}
 .game-option:last-child{border-bottom:none;}
-.game-option:active{background:rgba(245,196,81,0.1);}
+.game-option:active{background:rgba(245,184,61,0.1);}
 .game-option .go-label{font-weight:600;}
 .game-option .go-date{font-size:11px;color:var(--accent);font-weight:600;margin-bottom:2px;}
 .game-option .go-odds{font-size:11px;color:var(--muted);margin-top:2px;}
 .game-option .go-soon{font-size:10px;color:var(--accent3);font-weight:700;margin-top:2px;}
-.game-option.selected{background:rgba(245,196,81,0.1);border-left:3px solid var(--accent);}
+.game-option.selected{background:rgba(245,184,61,0.1);border-left:3px solid var(--accent);}
 .picker-loading{padding:16px;text-align:center;color:var(--muted);font-size:13px;}
 .market-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
 .market-pill{padding:8px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:var(--surface2);transition:all 0.15s;color:var(--muted);}
-.market-pill.selected{border-color:var(--accent);color:var(--accent);background:rgba(245,196,81,0.1);}
+.market-pill.selected{border-color:var(--accent);color:var(--accent);background:rgba(245,184,61,0.1);}
 .btn{width:100%;padding:14px;border:none;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;}
 .btn-primary{background:var(--accent);color:#000;}.btn-primary:active{transform:scale(0.97);filter:brightness(0.9);}
 .btn-danger{background:var(--accent2);color:#fff;}.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
@@ -185,8 +185,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .sheet-close{width:30px;height:30px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--muted);}
 .sheet-body{padding:16px 20px;}
 .winner-tag{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:600;margin-top:8px;}
-.winner-tag.matt{background:rgba(34,211,160,0.12);color:var(--matt);border:1px solid rgba(34,211,160,0.3);}
-.winner-tag.sam{background:rgba(76,141,255,0.12);color:var(--sam);border:1px solid rgba(76,141,255,0.3);}
+.winner-tag.matt{background:rgba(255,51,68,0.12);color:var(--matt);border:1px solid rgba(255,51,68,0.3);}
+.winner-tag.sam{background:rgba(228,231,236,0.12);color:var(--sam);border:1px solid rgba(228,231,236,0.3);}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px;}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
 .stat-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
@@ -222,7 +222,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .payout-balance-row{border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between;align-items:center;}
 .payout-balance-label{font-size:13px;color:var(--muted);}
 .payout-balance-val{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;}
-.payout-due-box{background:rgba(245,196,81,0.06);border:1px solid rgba(245,196,81,0.3);border-radius:var(--radius);padding:16px;text-align:center;margin-bottom:16px;}
+.payout-due-box{background:rgba(245,184,61,0.06);border:1px solid rgba(245,184,61,0.3);border-radius:var(--radius);padding:16px;text-align:center;margin-bottom:16px;}
 .payout-due-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent3);margin-bottom:6px;}
 .payout-due-amount{font-family:'Barlow Condensed',sans-serif;font-size:56px;font-weight:900;color:var(--accent3);line-height:1;}
 .payout-due-sub{font-size:12px;color:var(--muted);margin-top:4px;}
@@ -231,8 +231,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .payout-game-name{font-size:13px;font-weight:600;}
 .payout-game-meta{font-size:11px;color:var(--muted);margin-top:2px;}
 .payout-game-winner{font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;}
-.payout-game-winner.matt{background:rgba(34,211,160,0.15);color:var(--matt);}
-.payout-game-winner.sam{background:rgba(76,141,255,0.15);color:var(--sam);}
+.payout-game-winner.matt{background:rgba(255,51,68,0.15);color:var(--matt);}
+.payout-game-winner.sam{background:rgba(228,231,236,0.15);color:var(--sam);}
 .no-payout-box{text-align:center;padding:28px 20px;color:var(--muted);}
 .no-payout-icon{font-size:44px;margin-bottom:10px;}
 .checkbox-row{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;}
@@ -246,64 +246,100 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .nav-item.active::before{content:'';position:absolute;top:0;left:30%;right:30%;height:2px;border-radius:0 0 2px 2px;background:var(--accent);}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important;}}
 
-/* ══ Midnight Gold overhaul ══════════════════════════════════════════════ */
-body{background:radial-gradient(900px 520px at -10% -10%,rgba(34,211,160,0.13),transparent 60%),radial-gradient(900px 560px at 110% 0%,rgba(76,141,255,0.16),transparent 60%),radial-gradient(700px 480px at 50% 115%,rgba(245,196,81,0.07),transparent 60%),var(--bg);background-attachment:fixed;}
-#loader{background:radial-gradient(600px 400px at 50% 40%,rgba(76,141,255,0.14),transparent 70%),var(--bg);}
-#loader .logo-mark{width:88px;height:88px;margin-bottom:18px;filter:drop-shadow(0 18px 36px rgba(76,141,255,0.45));animation:pop .6s cubic-bezier(.2,1.4,.4,1) both;}
+/* ══ Blackout Red theme ═══════════════════════════════════════════════════ */
+body{background:radial-gradient(900px 520px at -15% -10%,rgba(255,51,68,0.18),transparent 60%),radial-gradient(800px 500px at 115% 5%,rgba(255,255,255,0.06),transparent 60%),repeating-linear-gradient(135deg,rgba(255,255,255,0.014) 0 2px,transparent 2px 7px),var(--bg);background-attachment:fixed;}
+#loader{background:radial-gradient(600px 400px at 50% 40%,rgba(255,51,68,0.16),transparent 70%),var(--bg);}
+#loader .logo-mark{width:96px;height:96px;margin-bottom:18px;filter:drop-shadow(0 18px 36px rgba(255,51,68,0.4));animation:pop .6s cubic-bezier(.2,1.4,.4,1) both;}
 @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
-.loader-bar-inner{background:linear-gradient(90deg,var(--matt),var(--gold),var(--sam));}
-.header{background:rgba(7,11,20,0.72);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);position:relative;z-index:5;}
+#loader .logo-text{background:linear-gradient(90deg,var(--matt) 0%,var(--matt) 45%,var(--sam) 55%,var(--sam) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.loader-bar-inner{background:linear-gradient(90deg,var(--matt),#fff,#2a2a30);}
+.header{background:rgba(9,9,11,0.75);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);position:relative;z-index:5;}
+.header::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--matt),transparent);opacity:0.6;}
 .brand{display:flex;align-items:center;gap:10px;}
-.brand-mark{width:30px;height:30px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));}
+.brand-mark{width:32px;height:32px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.6));}
 .header-title{font-size:22px;letter-spacing:0.5px;}
-.header-title .vs{color:var(--gold);font-size:13px;margin:0 5px;vertical-align:3px;letter-spacing:1px;}
+.header-title .mc{color:var(--matt);}
+.header-title .sc{color:var(--sam);}
+.header-title .vs{color:var(--muted);font-size:13px;margin:0 5px;vertical-align:3px;letter-spacing:1px;}
 .sync-btn{background:rgba(255,255,255,0.05);color:var(--text);}
 .sync-btn svg{width:18px;height:18px;}
 .period-btn{background:rgba(255,255,255,0.04);border-color:var(--border);}
-.period-btn.active{background:linear-gradient(180deg,rgba(245,196,81,0.2),rgba(245,196,81,0.06));border-color:rgba(245,196,81,0.55);color:var(--gold);}
-/* frosted glass surfaces */
-.player-card,.game-card,.stat-card,.period-card,.league-row,.payout-hero,.auto-hero,.payout-game-row{background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 30px -20px rgba(0,0,0,0.9),inset 0 1px 0 rgba(255,255,255,0.06);}
-.player-card{position:relative;overflow:hidden;border-radius:20px;padding:18px 12px 16px;}
+.period-btn.active{background:linear-gradient(180deg,rgba(255,51,68,0.22),rgba(255,51,68,0.06));border-color:rgba(255,51,68,0.6);color:#fff;}
+/* glass surfaces */
+.player-card,.game-card,.stat-card,.period-card,.league-row,.payout-hero,.auto-hero,.payout-game-row{background:linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.015));border:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 30px -20px rgba(0,0,0,0.95),inset 0 1px 0 rgba(255,255,255,0.05);}
+/* player cards: Matt = red, Sam = black */
+.player-card{position:relative;overflow:hidden;border-radius:20px;padding:16px 12px 16px;}
 .player-card::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;}
+#mattCard{background:linear-gradient(180deg,rgba(255,51,68,0.16),rgba(255,51,68,0.03) 70%);border-color:rgba(255,51,68,0.25);}
+#samCard{background:linear-gradient(180deg,#1d1d22,#050506);border-color:rgba(228,231,236,0.16);}
 #mattCard::before{background:linear-gradient(90deg,transparent,var(--matt),transparent);}
-#samCard::before{background:linear-gradient(90deg,transparent,var(--sam),transparent);}
-#mattCard.winning{background:linear-gradient(180deg,rgba(34,211,160,0.14),rgba(255,255,255,0.02));}
-#samCard.winning{background:linear-gradient(180deg,rgba(76,141,255,0.16),rgba(255,255,255,0.02));}
-.avatar{width:42px;height:42px;margin:0 auto 8px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:23px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.35);}
-.avatar.matt{background:linear-gradient(135deg,#43F2C2,#0E9F78);box-shadow:0 8px 20px -8px rgba(34,211,160,0.8);}
-.avatar.sam{background:linear-gradient(135deg,#76AAFF,#2B57D9);box-shadow:0 8px 20px -8px rgba(76,141,255,0.8);}
+#samCard::before{background:linear-gradient(90deg,transparent,#d9dde3,transparent);}
+#mattCard.winning{border-color:var(--matt);box-shadow:0 0 0 1px var(--matt),0 10px 34px -10px rgba(255,51,68,0.65);}
+#samCard.winning{border-color:#d9dde3;box-shadow:0 0 0 1px #d9dde3,0 10px 34px -10px rgba(255,255,255,0.35);}
+.crest{width:52px;height:52px;display:block;margin:0 auto 6px;filter:drop-shadow(0 8px 14px rgba(0,0,0,0.55));}
 .player-name{font-size:14px;letter-spacing:3px;}
-.player-wins{font-size:54px;color:var(--text);margin:8px 0 4px;}
-.vs-divider{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--gold);border:1px solid rgba(245,196,81,0.4);background:rgba(245,196,81,0.08);box-shadow:0 0 26px -6px rgba(245,196,81,0.55);}
+.player-wins{font-size:56px;color:var(--text);margin:6px 0 4px;}
+.vs-divider{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;border:1px solid rgba(255,255,255,0.18);background:linear-gradient(135deg,var(--matt) 0 50%,#111114 50% 100%);box-shadow:0 0 22px -6px rgba(255,51,68,0.6);text-shadow:0 1px 2px rgba(0,0,0,0.6);}
 .period-card,.balance-banner{border-radius:18px;}
-.balance-banner.owed{background:linear-gradient(90deg,rgba(255,90,110,0.14),rgba(255,90,110,0.05));}
-.balance-banner.even{background:linear-gradient(90deg,rgba(34,211,160,0.12),rgba(34,211,160,0.04));}
-.payout-pill{background:linear-gradient(180deg,#FFD978,#E9AE36);color:#1a1205;box-shadow:0 0 18px -4px rgba(245,196,81,0.7);}
+.balance-banner.owed{background:linear-gradient(90deg,rgba(255,138,61,0.14),rgba(255,138,61,0.04));border:1px solid rgba(255,138,61,0.3);}
+.balance-banner.owed .balance-amount{color:var(--accent2);}
+.balance-banner.even{background:linear-gradient(90deg,rgba(61,220,151,0.12),rgba(61,220,151,0.04));border:1px solid rgba(61,220,151,0.25);}
+.balance-banner.even .balance-amount{color:var(--pos);}
+.payout-pill{background:linear-gradient(180deg,#FFD27A,#E9A42E);color:#1a1205;box-shadow:0 0 18px -4px rgba(245,184,61,0.7);}
 .section-title{color:var(--text);opacity:0.65;}
+/* game cards */
 .game-card{border-radius:16px;}
 .game-card::before{width:4px;}
-.badge-win{color:var(--pos);}
-.badge-split{color:var(--gold);background:rgba(245,196,81,0.14);border-color:rgba(245,196,81,0.35);}
+.game-card.won-matt::before{background:var(--matt);}
+.game-card.won-sam::before{background:linear-gradient(180deg,#e4e7ec,#5b5e66);}
+.game-card.won-split::before{background:var(--gold);}
+.picker-row.by-matt{background:linear-gradient(90deg,rgba(255,51,68,0.17),rgba(255,51,68,0.04));border:1px solid rgba(255,51,68,0.28);}
+.picker-row.by-sam{background:linear-gradient(90deg,rgba(0,0,0,0.6),rgba(0,0,0,0.3));border:1px solid rgba(228,231,236,0.16);}
+.picker-row.fav-row.live-covering,.picker-row.dog-row.live-covering{background:rgba(61,220,151,0.16);border-color:rgba(61,220,151,0.5);}
+.picker-row.fav-row.live-losing,.picker-row.dog-row.live-losing{background:rgba(255,138,61,0.12);border-color:rgba(255,138,61,0.4);}
+.pick-choice{align-items:center;}
+.team-logo{width:24px;height:24px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));}
+.title-logos{display:inline-flex;gap:3px;vertical-align:-5px;margin-right:6px;}
+.title-logo{width:20px;height:20px;object-fit:contain;}
+.pick-spread.plus{color:#fff;}
+.pick-side.over{color:var(--pos);}
+.pick-side.under{color:var(--accent2);}
+.pick-owner-name.sam{color:var(--sam);}
+.badge-win{background:rgba(61,220,151,0.12);color:var(--pos);border:1px solid rgba(61,220,151,0.3);}
+.badge-split{color:var(--gold);background:rgba(245,184,61,0.14);border-color:rgba(245,184,61,0.35);}
+.badge-pending{background:rgba(245,184,61,0.12);color:var(--gold);border:1px solid rgba(245,184,61,0.3);}
+.winner-chip.matt,.payout-game-winner.matt{background:rgba(255,51,68,0.18);color:var(--matt);}
+.winner-chip.sam,.payout-game-winner.sam{background:#050506;color:var(--sam);border:1px solid rgba(228,231,236,0.25);}
+.winner-tag.matt{background:rgba(255,51,68,0.14);color:var(--matt);border:1px solid rgba(255,51,68,0.35);}
+.winner-tag.sam{background:#050506;color:var(--sam);border:1px solid rgba(228,231,236,0.25);}
 .league-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);font-weight:600;font-size:10.5px;letter-spacing:0.3px;}
-.league-badge svg{width:12px;height:12px;color:var(--gold);}
+.league-badge svg{width:12px;height:12px;color:var(--matt);}
+/* buttons + forms */
 .btn{border-radius:14px;}
-.btn-primary{background:linear-gradient(180deg,#FFD978,#E9AE36);color:#1a1205;box-shadow:0 12px 26px -14px rgba(245,196,81,0.9),inset 0 1px 0 rgba(255,255,255,0.45);}
-.btn-danger{background:linear-gradient(180deg,#FF7486,#E8435A);box-shadow:0 12px 26px -14px rgba(255,90,110,0.9),inset 0 1px 0 rgba(255,255,255,0.25);}
+.btn-primary{background:linear-gradient(180deg,#FF4A57,#C8101E);color:#fff;box-shadow:0 12px 26px -14px rgba(255,51,68,0.9),inset 0 1px 0 rgba(255,255,255,0.3);}
+.btn-danger{background:linear-gradient(180deg,#FFD27A,#E9A42E);color:#1a1205;box-shadow:0 12px 26px -14px rgba(245,184,61,0.9),inset 0 1px 0 rgba(255,255,255,0.45);}
 .btn-secondary{background:rgba(255,255,255,0.06);}
 .form-input,.form-select{background:rgba(255,255,255,0.05);border-radius:10px;}
-.form-input:focus,.form-select:focus{box-shadow:0 0 0 3px rgba(245,196,81,0.18);}
+.form-input:focus,.form-select:focus{border-color:var(--matt);box-shadow:0 0 0 3px rgba(255,51,68,0.2);}
 .game-picker{background:rgba(255,255,255,0.035);}
-.modal-sheet,.confirm-box{background:linear-gradient(180deg,#131B30,#0B1120);}
-.payout-due-box{background:radial-gradient(400px 160px at 50% 0%,rgba(245,196,81,0.16),rgba(245,196,81,0.04));border-radius:18px;}
-.payout-due-amount{text-shadow:0 0 30px rgba(245,196,81,0.45);}
-.h2h-track{height:10px;border-radius:5px;}
-.h2h-fill{border-radius:5px;box-shadow:0 0 16px -2px rgba(76,141,255,0.5);}
-.auto-icon svg{width:54px;height:54px;color:var(--gold);filter:drop-shadow(0 0 14px rgba(245,196,81,0.5));}
-.bottom-nav{background:rgba(9,13,24,0.8);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);}
+.game-option.selected{background:rgba(255,51,68,0.1);border-left-color:var(--matt);}
+.market-pill.selected{background:rgba(255,51,68,0.12);}
+.checkbox-box.checked::after{color:#fff;}
+.modal-sheet,.confirm-box{background:linear-gradient(180deg,#18181c,#0b0b0d);}
+.payout-due-box{background:radial-gradient(400px 160px at 50% 0%,rgba(245,184,61,0.16),rgba(245,184,61,0.03));border:1px solid rgba(245,184,61,0.3);border-radius:18px;}
+.payout-due-amount{color:var(--gold);text-shadow:0 0 30px rgba(245,184,61,0.45);}
+.net-pos{color:var(--pos);}.net-neg{color:var(--accent2);}
+.h2h-track{height:10px;border-radius:5px;background:#050506;border:1px solid var(--border);}
+.h2h-fill{border-radius:5px;background:linear-gradient(90deg,#B00F1C,var(--matt));box-shadow:0 0 16px -2px rgba(255,51,68,0.6);}
+.auto-icon svg{width:54px;height:54px;color:var(--matt);filter:drop-shadow(0 0 14px rgba(255,51,68,0.55));}
+.result-count{color:var(--pos);}
+.bottom-nav{background:rgba(12,12,14,0.82);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);}
 .nav-icon svg{width:22px;height:22px;display:block;}
-.nav-item.active{color:var(--gold);}
-.nav-item.active::before{background:var(--gold);box-shadow:0 0 12px var(--gold);}
-.toast{background:rgba(19,27,48,0.92);backdrop-filter:blur(12px);border-radius:12px;}
+.nav-item.active{color:#fff;}
+.nav-item.active .nav-icon{color:var(--matt);}
+.nav-item.active::before{background:var(--matt);box-shadow:0 0 12px var(--matt);}
+.toast{background:rgba(24,24,28,0.94);backdrop-filter:blur(12px);border-radius:12px;}
+.spinner{border-top-color:var(--matt);}
 </style>
 </head>
 <body>
@@ -329,9 +365,9 @@ body{background:radial-gradient(900px 520px at -10% -10%,rgba(34,211,160,0.13),t
       <div class="scoreboard">
         <div class="scoreboard-head"><div class="scoreboard-label" id="recordLabel">This Week</div><div class="last-updated" id="lastUpdated"></div></div>
         <div class="vs-grid">
-          <div class="player-card" id="mattCard"><div class="avatar matt">M</div><div class="player-name">Matt</div><div class="player-wins" id="mattWins">—</div><div class="player-record" id="mattRecord">0-0</div><div class="player-net" id="mattNet">$0</div></div>
+          <div class="player-card" id="mattCard"><img class="crest" src="matt.svg" alt="Matt"><div class="player-name">Matt</div><div class="player-wins" id="mattWins">—</div><div class="player-record" id="mattRecord">0-0</div><div class="player-net" id="mattNet">$0</div></div>
           <div class="vs-divider">VS</div>
-          <div class="player-card" id="samCard"><div class="avatar sam">S</div><div class="player-name">Sam</div><div class="player-wins" id="samWins">—</div><div class="player-record" id="samRecord">0-0</div><div class="player-net" id="samNet">$0</div></div>
+          <div class="player-card" id="samCard"><img class="crest" src="sam.svg" alt="Sam"><div class="player-name">Sam</div><div class="player-wins" id="samWins">—</div><div class="player-record" id="samRecord">0-0</div><div class="player-net" id="samNet">$0</div></div>
         </div>
       </div>
       <div class="period-card" id="periodCard" style="display:none">
@@ -588,6 +624,7 @@ async function loadHome(){
     _cachedGames=games;
     _pendingGames=games.filter(g=>!g.finalScore);
     renderGames(games,{});
+    ensureLogos(games.map(g=>g.league)); // re-renders with logos once loaded
     maybeStartLivePolling(_pendingGames.length>0);
   }else{
     const err=gamesR.status==='rejected'?gamesR.reason:(gamesR.value&&gamesR.value.error);
@@ -668,6 +705,49 @@ function teamMatchClient(a,b){
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─── TEAM LOGOS (ESPN, fetched through Apps Script, cached on the phone 7 days) ──
+const LOGO_TTL_MS=7*24*60*60*1000;
+const _logoIdx={},_logoMemo={},_logoLoading={};
+function normLogo(s){return (s||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();}
+async function ensureLogos(leagues){
+  let added=false;
+  await Promise.all([...new Set(leagues)].filter(l=>l&&!_logoIdx[l]&&!_logoLoading[l]).map(async l=>{
+    _logoLoading[l]=true;
+    try{
+      const saved=JSON.parse(localStorage.getItem('logos_'+l)||'null');
+      if(saved&&saved.rows&&saved.rows.length&&Date.now()-saved.ts<LOGO_TTL_MS){_logoIdx[l]=saved.rows;added=true;return;}
+      const rows=await apiGet('getTeamLogos',{league:l});
+      if(Array.isArray(rows)&&rows.length){
+        _logoIdx[l]=rows;added=true;
+        try{localStorage.setItem('logos_'+l,JSON.stringify({ts:Date.now(),rows}));}catch(e){}
+      }
+    }catch(e){}finally{_logoLoading[l]=false;}
+  }));
+  if(added&&_cachedGames.length) renderGames(_cachedGames,buildLiveMap(_liveData,_pendingGames));
+}
+// Best ESPN logo for a team name as written in the sheet ("Michigan St", "Duke Blue", "Bears").
+function teamLogo(league,name){
+  const rows=_logoIdx[league];if(!rows||!name) return '';
+  const key=league+'|'+name;if(key in _logoMemo) return _logoMemo[key];
+  const n=normLogo(name),college=/NCAA/.test(league);
+  let best='',bestScore=0;
+  for(const r of rows){
+    const [dn,sdn,loc,nick,abbr]=r.slice(0,5).map(normLogo);
+    let sc=0;
+    if(n===sdn||n===loc||n===dn||n===nick||n===abbr) sc=4;
+    else if(dn.startsWith(n+' ')) sc=3;
+    else if(!college&&(teamMatchClient(name,r[1])||teamMatchClient(name,r[0]))) sc=1;
+    if(sc>bestScore){bestScore=sc;best=r[5];if(sc===4) break;}
+  }
+  const url=best?(/^(https?:|data:)/.test(best)?best:'https://a.espncdn.com/'+best):'';
+  _logoMemo[key]=url;return url;
+}
+function logoImg(league,name,cls='team-logo'){
+  const u=teamLogo(league,name);
+  return u?`<img class="${cls}" src="${u}" alt="" loading="lazy" onerror="this.remove()">`:'';
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function buildLiveMap(liveGames,pendingGames){
   const map={};
   pendingGames.forEach(pg=>{
@@ -725,7 +805,7 @@ function renderScoreboard(b){
   document.getElementById('mattWins').textContent=mattW;document.getElementById('samWins').textContent=samW;
   document.getElementById('mattRecord').textContent=`${mattW}-${mattL} W-L`;document.getElementById('samRecord').textContent=`${samW}-${samL} W-L`;
   document.getElementById('mattNet').textContent=signedMoney(mattNet);document.getElementById('samNet').textContent=signedMoney(samNet);
-  document.getElementById('mattNet').style.color=mattNet>=0?'var(--matt)':'var(--accent2)';document.getElementById('samNet').style.color=samNet>=0?'var(--sam)':'var(--accent2)';
+  document.getElementById('mattNet').style.color=mattNet>=0?'var(--pos)':'var(--accent2)';document.getElementById('samNet').style.color=samNet>=0?'var(--pos)':'var(--accent2)';
   document.getElementById('mattCard').className='player-card'+(mattW>samW?' winning':'');
   document.getElementById('samCard').className='player-card'+(samW>mattW?' winning':'');
 }
@@ -737,9 +817,9 @@ function renderPeriodCard(p){
   document.getElementById('periodMattWL').textContent=`${p.mattWins}-${p.mattLosses}`;
   document.getElementById('periodSamWL').textContent=`${p.samWins}-${p.samLosses}`;
   document.getElementById('periodMattNet').textContent=signedMoney(p.mattNet);
-  document.getElementById('periodMattNet').style.color=p.mattNet>=0?'var(--matt)':'var(--accent2)';
+  document.getElementById('periodMattNet').style.color=p.mattNet>=0?'var(--pos)':'var(--accent2)';
   document.getElementById('periodSamNet').textContent=signedMoney(p.samNet);
-  document.getElementById('periodSamNet').style.color=p.samNet>=0?'var(--sam)':'var(--accent2)';
+  document.getElementById('periodSamNet').style.color=p.samNet>=0?'var(--pos)':'var(--accent2)';
   const abs=Math.abs(p.unpaidBalance||0);
   document.getElementById('periodBalanceLabel').textContent=abs<0.01?'All Square':`${p.owes} owes ${p.owed}`;
   document.getElementById('periodBalanceVal').textContent='$'+abs.toFixed(2);
@@ -809,8 +889,8 @@ function renderGames(games,liveMap){
     } else {
       const favSpread=lineNum!==''?`−${lineNum}`:'';
       const dogSpread=lineNum!==''?`+${lineNum}`:'';
-      favChoiceHtml=`<span class="pick-team-name">${favTeam}</span>${favSpread?`<span class="pick-spread minus">${favSpread}</span>`:''}`;
-      dogChoiceHtml=`<span class="pick-team-name">${dogTeam}</span>${dogSpread?`<span class="pick-spread plus">${dogSpread}</span>`:''}`;
+      favChoiceHtml=`${logoImg(g.league,favTeam)}<span class="pick-team-name">${favTeam}</span>${favSpread?`<span class="pick-spread minus">${favSpread}</span>`:''}`;
+      dogChoiceHtml=`${logoImg(g.league,dogTeam)}<span class="pick-team-name">${dogTeam}</span>${dogSpread?`<span class="pick-spread plus">${dogSpread}</span>`:''}`;
     }
 
     // Badge: LIVE (pulsing red) > Pending (yellow) > Winner chip
@@ -843,15 +923,16 @@ function renderGames(games,liveMap){
     const gameTitle=isTotal
       ?`${favTeam} vs ${dogTeam} <span style="font-size:11px;color:var(--accent3);font-weight:700">O/U ${g.line||''}</span>`
       :g.game;
+    const titleLogos=isTotal?`<span class="title-logos">${logoImg(g.league,favTeam,'title-logo')}${logoImg(g.league,dogTeam,'title-logo')}</span>`:'';
 
     return `<div class="game-card ${cls}" onclick='openEdit(${JSON.stringify(g).replace(/'/g,"&#39;")})'>
-      <div class="game-top"><div class="game-name">${gameTitle}</div>${badge}</div>
+      <div class="game-top"><div class="game-name">${titleLogos}${gameTitle}</div>${badge}</div>
       <div class="picker-rows">
-        <div class="picker-row fav-row${favRowExtra}">
+        <div class="picker-row fav-row by-${favNameClass}${favRowExtra}">
           <div class="pick-main"><div class="pick-choice">${favChoiceHtml}</div>${oddsHtml}</div>
           <div class="pick-owner"><span class="pick-owner-label">Pick</span><span class="pick-owner-name ${favNameClass}">${favPicker}</span></div>
         </div>
-        <div class="picker-row dog-row${dogRowExtra}">
+        <div class="picker-row dog-row by-${dogNameClass}${dogRowExtra}">
           <div class="pick-main"><div class="pick-choice">${dogChoiceHtml}</div>${oddsHtml}</div>
           <div class="pick-owner"><span class="pick-owner-label">Pick</span><span class="pick-owner-name ${dogNameClass}">${dogPicker}</span></div>
         </div>
@@ -911,13 +992,13 @@ function renderPayoutTab(p){
         <div class="payout-player">
           <div class="payout-player-name matt">Matt</div>
           <div class="payout-wl" style="color:var(--matt)">${p.mattWins}-${p.mattLosses}</div>
-          <div class="payout-net" style="color:${(p.mattNet||0)>=0?'var(--matt)':'var(--accent2)'}">${signedMoney(p.mattNet)}</div>
+          <div class="payout-net" style="color:${(p.mattNet||0)>=0?'var(--pos)':'var(--accent2)'}">${signedMoney(p.mattNet)}</div>
         </div>
         <div class="vs-divider">VS</div>
         <div class="payout-player">
           <div class="payout-player-name sam">Sam</div>
           <div class="payout-wl" style="color:var(--sam)">${p.samWins}-${p.samLosses}</div>
-          <div class="payout-net" style="color:${(p.samNet||0)>=0?'var(--sam)':'var(--accent2)'}">${signedMoney(p.samNet)}</div>
+          <div class="payout-net" style="color:${(p.samNet||0)>=0?'var(--pos)':'var(--accent2)'}">${signedMoney(p.samNet)}</div>
         </div>
       </div>
       <div class="payout-balance-row">
@@ -1157,7 +1238,7 @@ async function previewWinner(){
     if(!r){prev.style.display='none';return;}
     prev.style.display='block';
     if(r.isPush){
-      prev.innerHTML=`<div class="winner-tag" style="background:rgba(245,196,81,0.12);color:var(--accent3);border:1px solid rgba(245,196,81,0.3)">🤝 Push — landed exactly on the line → <strong>Split (no money)</strong></div>`;
+      prev.innerHTML=`<div class="winner-tag" style="background:rgba(245,184,61,0.12);color:var(--accent3);border:1px solid rgba(245,184,61,0.3)">🤝 Push — landed exactly on the line → <strong>Split (no money)</strong></div>`;
     } else if(isTotal){
       const isMatt=r.winner==='Matt';
       const totalScored=r.margin;

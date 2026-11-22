@@ -1,4 +1,4 @@
-const CACHE = 'samvsmatt-v12';
+const CACHE = 'samvsmatt-v13';
 const BASE = '/Matt-vs-Sam';
 const ASSETS = [
   BASE + '/',
@@ -7,7 +7,9 @@ const ASSETS = [
   BASE + '/icon-192.png',
   BASE + '/icon-512.png',
   BASE + '/icon.svg',
-  BASE + '/apple-touch-icon.png'
+  BASE + '/apple-touch-icon.png',
+  BASE + '/matt.svg',
+  BASE + '/sam.svg'
 ];
 
 self.addEventListener('install', e => {

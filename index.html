@@ -1099,7 +1099,7 @@ function renderGamesPicker(games){
         <div class="go-date">${g.displayDate||g.gameDate}</div>
         <div class="go-label">${g.awayTeam} @ ${g.homeTeam}</div>
         ${g.options&&g.options[0]?`<div class="go-odds">${g.options[0].oddsStr||''} <span style="color:var(--accent);font-weight:700;font-size:10px">● closest to 50/50</span></div>`:''}
-        ${g.startingSoon?`<div class="go-soon">⚠️ Starting within 30 min — lock it in!</div>`:''}
+        ${g.startingSoon?`<div class="go-soon">⚠️ Already started — picks lock 15 min after start</div>`:''}
       </div>`).join('');
 }
 async function fetchGames(force){
@@ -1205,6 +1205,7 @@ async function submitAddGame(){
   try{
     const r=await apiPost('addGame',d);
     if(r&&r.duplicate){showToast('⚠️ Duplicate: '+(r.reason||'Already in sheet')+' (row '+r.row+')','error');return;}
+    if(r&&r.locked){showToast('🔒 '+r.error,'error');fetchGames(true);return;}
     showToast('✅ Added! Pick another game','success');
     // Clear the form inputs but keep the league selected.
     document.getElementById('addTeam1').value='';document.getElementById('addTeam2').value='';

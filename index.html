@@ -415,6 +415,7 @@ body{background:radial-gradient(900px 520px at -15% -10%,rgba(255,51,68,0.18),tr
         </div>
         <div id="marketGroup" style="display:none">
           <div class="form-group"><label class="form-label">Market</label><div class="market-pills" id="marketPills"></div></div>
+          <div class="form-group" id="propGroup" style="display:none"><label class="form-label">Player Props <span style="color:var(--muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none">— 45–55% only, source shown on each</span></label><div id="propList" class="game-picker"></div></div>
         </div>
         <div class="form-row" style="margin-bottom:16px">
           <div class="form-group" style="margin:0"><label class="form-label" id="lblTeam1">Fav (Team 1)</label><input type="text" class="form-input" id="addTeam1" placeholder="Favorite"></div>
@@ -513,6 +514,12 @@ body{background:radial-gradient(900px 520px at -15% -10%,rgba(255,51,68,0.18),tr
 <script>
 const API='https://script.google.com/macros/s/AKfycbz2q5gxGcL41LSZKjMyfmA3YPXvtOILNtUMHxvMvuR2ALRCD3CNRziA0LntXBxa2K1q/exec';
 let _allGames=[],_selectedGameIdx=-1,_selectedMktIdx=-1;
+// Player props: leagues with priced props on ESPN (verified 2026-11-23), the
+// props shown for the selected game, the one picked, and live stats by sheet row.
+const PROP_LEAGUES=['NBA','NHL','NFL'];
+let _props=[],_selectedProp=null,_livePropMap={};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function pct(p){return (p*100).toFixed(1)+'%';}
 let _paidChecked=false,_balanceData=null,_currentPeriod='week';
 let _liveInterval=null,_liveData=[],_payoutStats=null;
 let _pendingGames=[];
@@ -642,8 +649,14 @@ async function loadLiveScores(){
   if(!_pendingGames.length){stopLivePolling();return;}
   try{
     // FIX: only fetch live scores — reuse cached game list instead of re-fetching every 30s
-    const live=await apiGet('getLiveScores');
+    // Live player stats for prop bets whose game has started (one ESPN box score per game).
+    const propRows=_pendingGames.filter(g=>(g.odds||'').toString().startsWith('PROP')&&g.commenceTime&&new Date(g.commenceTime)<=new Date()).map(g=>g.row);
+    const [live,props]=await Promise.all([
+      apiGet('getLiveScores'),
+      propRows.length?apiGet('getLivePropStats',{rows:propRows.join(',')}).catch(()=>({})):Promise.resolve({})
+    ]);
     _liveData=live||[];
+    _livePropMap=props||{};
     const hasLive=_liveData.length>0;
 
     // Show/hide the LIVE indicator in the header
@@ -751,6 +764,7 @@ function logoImg(league,name,cls='team-logo'){
 function buildLiveMap(liveGames,pendingGames){
   const map={};
   pendingGames.forEach(pg=>{
+    if((pg.odds||'').toString().startsWith('PROP')) return; // props use player stats (_livePropMap), not team score
     // Detect O/U from odds column marker
     const isTotal=(pg.odds||'').toString().startsWith('O/U');
     const parts=(pg.game||'').split(' vs ');
@@ -865,7 +879,10 @@ function renderGames(games,liveMap){
 
   list.innerHTML=sorted.map(g=>{
     const hasFinal=!!g.finalScore,isPending=!hasFinal;
-    const isLive=isPending&&!!liveMap[g.game];
+    // Player prop rows: "PROP" marker; live state comes from the player's box-score line.
+    const isProp=(g.odds||'').toString().startsWith('PROP');
+    const lp=isProp?_livePropMap[g.row]:null;
+    const isLive=isPending&&(isProp?!!(lp&&lp.state==='in'):!!liveMap[g.game]);
     // Detect O/U total bet from odds column marker
     const isTotal=(g.odds||'').toString().startsWith('O/U');
     // live-active gets a special card style; pending without live data gets pending style
@@ -877,15 +894,18 @@ function renderGames(games,liveMap){
 
     // Odds display only: strip the internal "O/U " marker so we show just the odds number.
     // Backend value (g.odds) is unchanged; this is presentation only.
-    const oddsDisplay=(g.odds||'').toString().replace(/^O\/U\s*/i,'').trim();
+    const oddsDisplay=(g.odds||'').toString().replace(/^(O\/U|PROP)\s*/i,'').trim();
     const oddsHtml=oddsDisplay?`<span class="pick-odds">Odds: ${oddsDisplay}</span>`:'';
+    const pm=g.propMeta||{};
+    const overOddsHtml=isProp&&pm.overOdds!=null?`<span class="pick-odds">Odds: ${fmtOdds(pm.overOdds)}</span>`:oddsHtml;
+    const underOddsHtml=isProp&&pm.underOdds!=null?`<span class="pick-odds">Odds: ${fmtOdds(pm.underOdds)}</span>`:oddsHtml;
     const lineNum=(g.line!==undefined&&g.line!==null&&g.line!=='')?g.line:'';
 
     // Build the primary "choice" markup for each of the two rows.
     // O/U: lead with OVER/UNDER + the total. Spread: lead with team name + signed spread.
     // Odds shown as a secondary line under the choice. No fav/dog terminology surfaced.
     let favChoiceHtml, dogChoiceHtml;
-    if(isTotal){
+    if(isTotal||isProp){
       favChoiceHtml=`<span class="pick-side over">OVER</span><span class="pick-line-num">${lineNum}</span>`;
       dogChoiceHtml=`<span class="pick-side under">UNDER</span><span class="pick-line-num">${lineNum}</span>`;
     } else {
@@ -910,7 +930,17 @@ function renderGames(games,liveMap){
 
     let liveHtml='';
     let favRowExtra='',dogRowExtra='';
-    if(isLive){
+    if(isLive&&isProp){
+      // Live player stat vs the line: Over row is "covering" once the stat passes the line.
+      const val=lp.played===false?0:lp.value, overNow=val!=null&&val>parseFloat(g.line);
+      favRowExtra=overNow?' live-covering':' live-losing';
+      dogRowExtra=overNow?' live-losing':' live-covering';
+      liveHtml=`<div class="live-inline">
+        <span class="live-inline-badge">● LIVE</span>
+        <span class="live-inline-score">${esc(pm.player||'Player')}: ${val==null?'—':val} ${esc(pm.market||'')} (line ${g.line})</span>
+        <span class="live-inline-clock">${esc(lp.detail||'')}</span>
+      </div>`;
+    } else if(isLive){
       const lv=liveMap[g.game];
       favRowExtra=lv.favCovering?' live-covering':' live-losing';
       dogRowExtra=lv.favCovering?' live-losing':' live-covering';
@@ -922,20 +952,22 @@ function renderGames(games,liveMap){
     }
 
     // Game title: for O/U show the matchup + "O/U" badge; for spread show normally
-    const gameTitle=isTotal
+    const gameTitle=isProp
+      ?`${esc(g.prop||'Player prop')} <span style="font-size:11px;color:var(--accent3);font-weight:700">O/U ${g.line||''}</span><div style="font-size:11px;color:var(--muted);font-weight:500">${esc(g.game)}</div>`
+      :isTotal
       ?`${favTeam} vs ${dogTeam} <span style="font-size:11px;color:var(--accent3);font-weight:700">O/U ${g.line||''}</span>`
       :g.game;
-    const titleLogos=isTotal?`<span class="title-logos">${logoImg(g.league,favTeam,'title-logo')}${logoImg(g.league,dogTeam,'title-logo')}</span>`:'';
+    const titleLogos=(isTotal||isProp)?`<span class="title-logos">${logoImg(g.league,favTeam,'title-logo')}${logoImg(g.league,dogTeam,'title-logo')}</span>`:'';
 
     return `<div class="game-card ${cls}" onclick='openEdit(${JSON.stringify(g).replace(/'/g,"&#39;")})'>
       <div class="game-top"><div class="game-name">${titleLogos}${gameTitle}</div>${badge}</div>
       <div class="picker-rows">
         <div class="picker-row fav-row by-${favNameClass}${favRowExtra}">
-          <div class="pick-main"><div class="pick-choice">${favChoiceHtml}</div>${oddsHtml}</div>
+          <div class="pick-main"><div class="pick-choice">${favChoiceHtml}</div>${overOddsHtml}</div>
           <div class="pick-owner"><span class="pick-owner-label">Pick</span><span class="pick-owner-name ${favNameClass}">${favPicker}</span></div>
         </div>
         <div class="picker-row dog-row by-${dogNameClass}${dogRowExtra}">
-          <div class="pick-main"><div class="pick-choice">${dogChoiceHtml}</div>${oddsHtml}</div>
+          <div class="pick-main"><div class="pick-choice">${dogChoiceHtml}</div>${underOddsHtml}</div>
           <div class="pick-owner"><span class="pick-owner-label">Pick</span><span class="pick-owner-name ${dogNameClass}">${dogPicker}</span></div>
         </div>
       </div>
@@ -1086,7 +1118,7 @@ function readGamesCacheStale(league){
   return null;
 }
 function renderGamesPicker(games){
-  _allGames=games||[];_selectedGameIdx=-1;_selectedMktIdx=-1;
+  _allGames=games||[];_selectedGameIdx=-1;_selectedMktIdx=-1;_selectedProp=null;
   document.getElementById('marketGroup').style.display='none';
   const list=document.getElementById('gamePickerList');
   if(!_allGames.length||(_allGames[0]&&_allGames[0].error)){
@@ -1140,11 +1172,54 @@ function selectGame(idx){
   const el=document.getElementById('gopt-'+idx);if(el)el.classList.add('selected');
   const g=_allGames[idx];if(!g)return;
   document.getElementById('marketGroup').style.display='block';
-  document.getElementById('marketPills').innerHTML=(g.options||[]).map((o,i)=>`<div class="market-pill ${o.type===g.bestType?'selected':''}" id="mpill-${i}" onclick="selectMarket(${idx},${i})">${o.type==='spread'?'Spread':o.type==='moneyline'?'Moneyline':'O/U'}${o.type===g.bestType?' · 50/50':''}</div>`).join('');
+  document.getElementById('marketPills').innerHTML=(g.options||[]).map((o,i)=>`<div class="market-pill ${o.type===g.bestType?'selected':''}" id="mpill-${i}" onclick="selectMarket(${idx},${i})">${o.type==='spread'?'Spread':o.type==='moneyline'?'Moneyline':'O/U'}${o.type===g.bestType?' · 50/50':''}</div>`).join('')
+    +(PROP_LEAGUES.includes(document.getElementById('addLeague').value)?`<div class="market-pill" id="mpill-props" onclick="loadProps(${idx})">Player Props</div>`:'');
   selectMarket(idx,(g.options||[]).findIndex(o=>o.type===g.bestType));
 }
 
+// Player props for one game: fetched only when the pill is tapped (cached 20 min server-side).
+async function loadProps(gameIdx){
+  const g=_allGames[gameIdx];if(!g)return;
+  _selectedMktIdx=-1;_selectedProp=null;_props=[];
+  document.querySelectorAll('.market-pill').forEach(p=>p.classList.remove('selected'));
+  const pill=document.getElementById('mpill-props');if(pill)pill.classList.add('selected');
+  ['addTeam1','addTeam2','addLine','addOdds','addDogOdds'].forEach(id=>document.getElementById(id).value='');
+  const list=document.getElementById('propList');
+  document.getElementById('propGroup').style.display='block';
+  list.innerHTML='<div class="picker-loading"><span class="spinner"></span> Finding balanced player props...</div>';
+  try{
+    const r=await apiGet('getPlayerProps',{league:document.getElementById('addLeague').value,home:g.homeTeam,away:g.awayTeam,commenceTime:g.commenceTime},ODDS_TIMEOUT_MS);
+    if(_selectedGameIdx!==gameIdx)return; // user moved on
+    _props=(r&&r.props)||[];
+    if(!_props.length){list.innerHTML='<div class="picker-loading">'+esc((r&&r.reason)||'No player props for this game')+'</div>';return;}
+    list.innerHTML=_props.map((p,i)=>`
+      <div class="game-option" id="prop-${i}" onclick="selectProp(${i})">
+        <div class="go-label">${esc(p.player)} <span style="color:var(--muted);font-weight:500">${esc(p.team)}${p.opp?' vs '+esc(p.opp):''}</span></div>
+        <div class="go-date">${esc(p.market)} · O/U ${p.line}</div>
+        <div class="go-odds">Over ${fmtOdds(p.overOdds)} (${pct(p.impliedOver)}) · Under ${fmtOdds(p.underOdds)} (${pct(p.impliedUnder)})</div>
+        <div class="go-odds">Fair Over ${pct(p.fairOver)} (${p.book==='Kalshi'?'mid-price':'vig removed'}) · ${esc(p.book)}${p.updated?' · updated '+esc(utcToCentralDisplay(p.updated)):''}</div>
+      </div>`).join('');
+  }catch(e){
+    list.innerHTML='<div class="picker-loading">'+(e&&e.message==='TIMEOUT'?'Timed out — tap Player Props to retry':'Player props unavailable right now')+'</div>';
+  }
+}
+function fmtOdds(n){n=Number(n);return (n>0?'+':'')+n;}
+function selectProp(i){
+  const p=_props[i],g=_allGames[_selectedGameIdx];if(!p||!g)return;
+  _selectedProp=p;
+  document.querySelectorAll('#propList .game-option').forEach(el=>el.classList.remove('selected'));
+  const el=document.getElementById('prop-'+i);if(el)el.classList.add('selected');
+  document.getElementById('addTeam1').value=g.sheetAway||'';document.getElementById('addTeam2').value=g.sheetHome||'';
+  document.getElementById('addLine').value=p.line;
+  document.getElementById('addOdds').value=fmtOdds(p.overOdds);document.getElementById('addDogOdds').value=fmtOdds(p.underOdds);
+  const setLbl=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;};
+  setLbl('lblTeam1','Team 1');setLbl('lblTeam2','Team 2');setLbl('lblOdds','Over Odds');setLbl('lblDogOdds','Under Odds');
+  const favLabel=document.getElementById('addFavorite').parentElement.querySelector('.form-label');
+  if(favLabel) favLabel.textContent='Over Picks';
+}
+
 function selectMarket(gameIdx,mktIdx){
+  _selectedProp=null;document.getElementById('propGroup').style.display='none';
   _selectedMktIdx=mktIdx;document.querySelectorAll('.market-pill').forEach(p=>p.classList.remove('selected'));
   const pill=document.getElementById('mpill-'+mktIdx);if(pill)pill.classList.add('selected');
   const g=_allGames[gameIdx];if(!g)return;const o=(g.options||[])[mktIdx];if(!o)return;
@@ -1200,8 +1275,9 @@ async function submitAddGame(){
   const isTotal = selectedOpt && selectedOpt.type === 'total';
   // For O/U bets, prefix odds with "O/U " so sheet and app can identify the bet type
   const rawOdds = document.getElementById('addOdds').value;
-  const odds = isTotal ? 'O/U ' + rawOdds : rawOdds;
-  const d={date:gameDate,league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:odds,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null};
+  // Player props: "PROP " marker in the odds column (like "O/U "), prop snapshot saved to cols L/M.
+  const odds = _selectedProp ? 'PROP ' + rawOdds : isTotal ? 'O/U ' + rawOdds : rawOdds;
+  const d={date:gameDate,league:document.getElementById('addLeague').value,game:t1+' vs '+t2,line:document.getElementById('addLine').value,odds:odds,favorite:document.getElementById('addFavorite').value,finalScore:'',winner:'',amtWon:'',paidOut:false,commenceTime:g.commenceTime||null,prop:_selectedProp||null};
   try{
     const r=await apiPost('addGame',d);
     if(r&&r.duplicate){showToast('⚠️ Duplicate: '+(r.reason||'Already in sheet')+' (row '+r.row+')','error');return;}
@@ -1210,7 +1286,7 @@ async function submitAddGame(){
     // Clear the form inputs but keep the league selected.
     document.getElementById('addTeam1').value='';document.getElementById('addTeam2').value='';
     document.getElementById('addLine').value='';document.getElementById('addOdds').value='';document.getElementById('addDogOdds').value='';
-    document.getElementById('marketGroup').style.display='none';_selectedGameIdx=-1;_selectedMktIdx=-1;
+    document.getElementById('marketGroup').style.display='none';_selectedGameIdx=-1;_selectedMktIdx=-1;_selectedProp=null;
     // Reload the game picker for the same league so multiple bets can be added
     // from one league without switching leagues to force a refresh.
     fetchGames();
@@ -1236,6 +1312,7 @@ async function previewWinner(){
   // Detect if this is an O/U total bet from the odds field (stored in editMeta text)
   const metaText=document.getElementById('editMeta').textContent||'';
   const isTotal=metaText.indexOf('O/U')>=0;
+  if(metaText.indexOf('PROP')>=0){prev.style.display='none';return;} // props are graded from the box score, not a team score
   try{
     const r=await apiPost('resolveScore',{scoreStr:score,favorite:fav,line,favoritePicker:fav,isTotal:isTotal});
     if(!r){prev.style.display='none';return;}

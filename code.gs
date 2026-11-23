@@ -5,7 +5,7 @@ var RECENT_GAMES_COUNT = 49; // how many sheet rows to show in Recent Games
 
 // ── Odds cache config ──────────────────────────────────────────────────────
 var ODDS_CACHE_SHEET = 'OddsCache';   // hidden tab: league | json | fetchedAt(ms)
-var ODDS_TTL_MS = 6 * 60 * 60 * 1000; // 6h: how long cached odds are considered fresh
+var ODDS_TTL_MS = 30 * 60 * 1000;     // 30 min: odds come free from ESPN, so refresh often (new lines show up)
 var ODDS_FAIL_TTL_MS = 60 * 1000;     // 60s: negative-cache window after a failed pull
 var PICK_GRACE_MS = 15 * 60 * 1000;   // picks stay open this long after start (delays), then lock
 // ────────────────────────────────────────────────────────────────────────────
@@ -180,6 +180,140 @@ function getGamesForLeague(league) {
     .map(function(g) { g.startingSoon = new Date(g.commenceTime).getTime() <= now; return g; });
 }
 
+// The Odds API key lives in Script Properties (Project Settings > Script Properties >
+// ODDS_API_KEY), not in code, because this repo is public.
+function oddsApiKey_() {
+  var k = PropertiesService.getScriptProperties().getProperty('ODDS_API_KEY');
+  if (!k) throw new Error('ODDS_API_KEY is not set in Script Properties');
+  return k;
+}
+
+// ── Odds API credits ─────────────────────────────────────────────────────────
+// Free plan: 500 credits/month. Every Odds API response reports credits left; we remember
+// the last value and email once when it drops below ODDS_API_ALERT_BELOW (re-arms when the
+// monthly reset brings it back up). Paid lookups stop at ODDS_API_FLOOR.
+var ODDS_API_FLOOR = 20;          // never spend below this many credits
+var ODDS_API_ALERT_BELOW = 100;   // email alert threshold
+
+// Emails live in Script Properties MATT_EMAIL and SAM_EMAIL, not in this public repo.
+// CREDIT_ALERT_TO picks who gets the low-credit email: matt (default), sam, or both.
+function personEmail_(who) {
+  return PropertiesService.getScriptProperties().getProperty(who === 'sam' ? 'SAM_EMAIL' : 'MATT_EMAIL') || '';
+}
+
+function creditAlertRecipients_(props) {
+  var pick = String(props.getProperty('CREDIT_ALERT_TO') || 'matt').toLowerCase().trim();
+  var list = pick === 'both' ? [personEmail_('matt'), personEmail_('sam')] : [personEmail_(pick)];
+  return list.filter(function(e) { return e; }).join(',');
+}
+
+function oddsCreditsLeft_() {
+  var v = PropertiesService.getScriptProperties().getProperty('ODDS_CREDITS_LEFT');
+  return v === null || v === '' || isNaN(Number(v)) ? null : Number(v);
+}
+
+function noteOddsApiCredits_(resp) {
+  var left = Number(headerVal_(resp, 'x-requests-remaining'));
+  if (isNaN(left)) return;
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('ODDS_CREDITS_LEFT', String(left));
+  var sent = props.getProperty('ODDS_LOW_ALERT_SENT') === '1';
+  if (left >= ODDS_API_ALERT_BELOW) { if (sent) props.deleteProperty('ODDS_LOW_ALERT_SENT'); return; }
+  if (sent) return;
+  var to = creditAlertRecipients_(props) || Session.getEffectiveUser().getEmail();
+  if (!to) return;
+  try {
+    MailApp.sendEmail({ to: to, subject: 'Matt vs Sam: Odds API credits low (' + left + ' left)',
+      body: 'The Odds API has ' + left + ' credits left this month (free plan: 500).\n\n' +
+            'Regular game odds come free from ESPN and are not affected.\n' +
+            'College football player props cost 4 credits per game and switch off at ' + ODDS_API_FLOOR + ' credits left.\n' +
+            'Credits reset monthly; this alert re-arms after the reset.' });
+    props.setProperty('ODDS_LOW_ALERT_SENT', '1');
+  } catch (e) {}
+}
+
+// Run from the Apps Script editor to see credits left. The /sports call is free.
+function checkOddsApiCredits() {
+  var r = UrlFetchApp.fetch('https://api.the-odds-api.com/v4/sports?apiKey=' + encodeURIComponent(oddsApiKey_()),
+                            { muteHttpExceptions: true });
+  noteOddsApiCredits_(r);
+  Logger.log('HTTP ' + r.getResponseCode() + ' | credits used ' + headerVal_(r, 'x-requests-used') +
+             ', remaining ' + headerVal_(r, 'x-requests-remaining'));
+}
+
+// ── Main odds from ESPN (free) ───────────────────────────────────────────────
+// ESPN scoreboards carry DraftKings spread / moneyline / total prices. Football is priced
+// days ahead; NBA/NHL/college hoops lines appear about a day before (checked 2026-11-23).
+var ESPN_ODDS_DAYS = 8;   // today + next 7 days
+
+// Today + the next 7 days of ESPN games, converted to the Odds API event shape so the
+// existing option-building code is reused unchanged. Returns null if ESPN can't be reached.
+function fetchEspnOddsEvents_(league, espnKey) {
+  var groups = league === 'NCAA MBB' ? '&groups=50' : league === 'NCAA F' ? '&groups=80' : '';
+  var reqs = [];
+  for (var d = 0; d < ESPN_ODDS_DAYS; d++) {
+    var ds = Utilities.formatDate(new Date(Date.now() + d * 86400000), 'America/Chicago', 'yyyyMMdd');
+    reqs.push({ url: 'https://site.web.api.espn.com/apis/site/v2/sports/' + espnKey + '/scoreboard?dates=' + ds +
+                     '&limit=300' + groups, muteHttpExceptions: true });
+  }
+  var reached = 0, seen = {}, out = [];
+  UrlFetchApp.fetchAll(reqs).forEach(function(r) {
+    var j = null;
+    try { if (r.getResponseCode() === 200) j = JSON.parse(r.getContentText()); } catch (e) {}
+    if (!j) return;
+    reached++;
+    (j.events || []).forEach(function(ev) {
+      if (seen[ev.id]) return;
+      seen[ev.id] = 1;
+      var g = espnEventToOddsShape_(ev);
+      if (g) out.push(g);
+    });
+  });
+  return reached ? out : null;
+}
+
+// "+170" -> 170, "-110" -> -110, "EVEN" -> 100, missing -> null.
+function espnPrice_(v) {
+  var s = String(v == null ? '' : v).trim();
+  if (/^even$/i.test(s)) return 100;
+  var n = Number(s.replace('+', ''));
+  return s && !isNaN(n) ? n : null;
+}
+
+// Pure: one ESPN scoreboard event -> {home_team, away_team, commence_time, bookmakers:[...]}.
+// Only upcoming/in-progress games with at least one fully priced market are returned.
+function espnEventToOddsShape_(ev) {
+  var state = ((ev.status || {}).type || {}).state;
+  if (state !== 'pre' && state !== 'in') return null;
+  var comp = (ev.competitions || [])[0] || {}, home = null, away = null;
+  (comp.competitors || []).forEach(function(c) { if (c.homeAway === 'home') home = c; else away = c; });
+  if (!home || !away) return null;
+  var odds = comp.odds || [];
+  var o = odds.filter(function(x) { return String((x.provider || {}).id) === String(ESPN_PROVIDER_DK); })[0] || odds[0];
+  if (!o) return null;
+  var H = (home.team || {}).displayName, A = (away.team || {}).displayName;
+  var cl = function(side) { return (side || {}).close || {}; };
+  var mkts = [];
+  var ps = o.pointSpread || {}, hs = cl(ps.home), as = cl(ps.away);
+  var hp = parseFloat(hs.line), ap = parseFloat(as.line);
+  if (!isNaN(hp) && !isNaN(ap) && espnPrice_(hs.odds) !== null && espnPrice_(as.odds) !== null) {
+    mkts.push({ key: 'spreads', outcomes: [{ name: H, point: hp, price: espnPrice_(hs.odds) },
+                                           { name: A, point: ap, price: espnPrice_(as.odds) }] });
+  }
+  var ml = o.moneyline || {}, hm = espnPrice_(cl(ml.home).odds), am = espnPrice_(cl(ml.away).odds);
+  if (hm !== null && am !== null) mkts.push({ key: 'h2h', outcomes: [{ name: H, price: hm }, { name: A, price: am }] });
+  var t = o.total || {}, ov = cl(t.over), un = cl(t.under);
+  var tl = parseFloat(String(ov.line || '').replace(/^[ou]/i, ''));
+  if (!isNaN(tl) && espnPrice_(ov.odds) !== null && espnPrice_(un.odds) !== null) {
+    mkts.push({ key: 'totals', outcomes: [{ name: 'Over', point: tl, price: espnPrice_(ov.odds) },
+                                          { name: 'Under', point: tl, price: espnPrice_(un.odds) }] });
+  }
+  if (!mkts.length) return null;
+  // Same start-time format the Odds API used ("2026-11-27T17:00:00Z") so duplicate checks keep matching.
+  return { home_team: H, away_team: A, commence_time: new Date(ev.date).toISOString().replace('.000Z', 'Z'),
+           bookmakers: [{ key: 'draftkings', markets: mkts }] };
+}
+
 function fetchGamesForLeague_(league) {
   var cacheKey = 'odds_' + league.replace(/\s/g, '_');
   var cache = CacheService.getScriptCache();
@@ -191,7 +325,7 @@ function fetchGamesForLeague_(league) {
     var cached = cache.get(cacheKey);
     if (cached) {
       var parsed = JSON.parse(cached);
-      if (parsed && parsed.length) return parsed;
+      if (Array.isArray(parsed)) return parsed;   // includes [] (off-season / no lines) so empty leagues aren't re-fetched
       // note: a __fail marker here does NOT short-circuit — we still prefer to
       // serve durable cache (below) or attempt a fresh pull. The marker only
       // becomes the answer at the very end if nothing else works.
@@ -204,7 +338,7 @@ function fetchGamesForLeague_(league) {
       try { durParsedGlobal = JSON.parse(durable.json); } catch (e) { durParsedGlobal = null; }
     }
     if (durParsedGlobal && durParsedGlobal.length && (Date.now() - durable.fetchedAt) < ODDS_TTL_MS) {
-      try { cache.put(cacheKey, durable.json, 21600); } catch (e) {}
+      try { cache.put(cacheKey, durable.json, Math.round((ODDS_TTL_MS - (Date.now() - durable.fetchedAt)) / 1000) || 1); } catch (e) {}
       return durParsedGlobal;
     }
 
@@ -219,28 +353,38 @@ function fetchGamesForLeague_(league) {
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    var url = 'https://api.the-odds-api.com/v4/sports/' + sportKey +
-      '/odds/?apiKey=7d2ddd074c8eb70572c33f7044136f70&regions=us&markets=spreads,h2h,totals&oddsFormat=american&dateFormat=iso';
+    // Main odds come free from ESPN (DraftKings lines). The Odds API (3 credits per pull) is only
+    // a backup for when ESPN can't be reached, and only while credits are above ODDS_API_FLOOR.
+    var espnKey = getEspnSportKey(league);
+    var data = (espnKey && espnKey !== 'golf') ? fetchEspnOddsEvents_(league, espnKey) : null;
+    var lastCode = 0, fromOddsApi = false;
+    var creditsLeft = oddsCreditsLeft_();
+    if (!Array.isArray(data) && creditsLeft !== null && creditsLeft - 3 < ODDS_API_FLOOR) {
+      lastCode = 'ESPN down; Odds API backup paused, ' + creditsLeft + ' credits left';
+    } else if (!Array.isArray(data)) {
+      var url = 'https://api.the-odds-api.com/v4/sports/' + sportKey +
+        '/odds/?apiKey=' + encodeURIComponent(oddsApiKey_()) + '&regions=us&markets=spreads,h2h,totals&oddsFormat=american&dateFormat=iso';
 
-    // One quick retry smooths over transient upstream hiccups (the main cause
-    // of intermittent "error loading games").
-    var data = null, lastCode = 0;
-    for (var attempt = 0; attempt < 2; attempt++) {
-      try {
-        var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-        lastCode = resp.getResponseCode();
-        if (lastCode >= 200 && lastCode < 300) {
-          try { var d = JSON.parse(resp.getContentText()); if (Array.isArray(d)) { data = d; break; } } catch (e) {}
-        }
-      } catch (e) {}
-      if (attempt === 0) Utilities.sleep(800); // brief backoff before retry
+      // One quick retry smooths over transient upstream hiccups (the main cause
+      // of intermittent "error loading games").
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+          noteOddsApiCredits_(resp);
+          lastCode = resp.getResponseCode();
+          if (lastCode >= 200 && lastCode < 300) {
+            try { var d = JSON.parse(resp.getContentText()); if (Array.isArray(d)) { data = d; fromOddsApi = true; break; } } catch (e) {}
+          }
+        } catch (e) {}
+        if (attempt === 0) Utilities.sleep(800); // brief backoff before retry
+      }
     }
 
     if (!Array.isArray(data)) {
       // Both attempts failed. Serve ANY stale durable cache before erroring.
       if (durParsedGlobal && durParsedGlobal.length) return durParsedGlobal;
       try { cache.put(cacheKey, JSON.stringify({ __fail: true }), Math.round(ODDS_FAIL_TTL_MS / 1000)); } catch (e) {}
-      return [{ error: 'Odds temporarily unavailable (HTTP ' + lastCode + ')', retryAfter: true }];
+      return [{ error: 'Odds temporarily unavailable (' + (typeof lastCode === 'number' ? 'HTTP ' : '') + lastCode + ')', retryAfter: true }];
     }
 
     var isCollege = (league === 'NCAA F' || league === 'NCAA MBB');
@@ -396,7 +540,8 @@ function fetchGamesForLeague_(league) {
 
     // ── Store in both cache layers ───────────────────────────────────────────
     var gamesJson = JSON.stringify(games);
-    try { cache.put(cacheKey, gamesJson, 21600); } catch(e) {}  // layer 1: 6h
+    // Paid backup results are kept 6h (cost 3 credits each); free ESPN results 30 min.
+    try { cache.put(cacheKey, gamesJson, fromOddsApi ? 21600 : Math.round(ODDS_TTL_MS / 1000)); } catch(e) {}  // layer 1 (empty lists too)
     if (games.length) writeOddsCache_(league, gamesJson);        // layer 2: durable
     // ────────────────────────────────────────────────────────────────────────
 
@@ -475,7 +620,8 @@ function addGame(d) {
   var lastRow=sheet.getLastRow();
 
   if (lastRow>=2) {
-    var existing=sheet.getRange(2,1,lastRow-1,11).getValues();
+    var existing=sheet.getRange(2,1,lastRow-1,12).getValues();
+    var inputProp = propLabel_(d.prop).toLowerCase();
     var inputGame = (d.game||'').toLowerCase().trim();
     var inputCommenceTime = (d.commenceTime||'').trim();
     var inputLine = (d.line||'').toString().trim();
@@ -492,7 +638,8 @@ function addGame(d) {
       var eLine = (existing[i][3]||'').toString().trim();
       var eOdds = (existing[i][4]||'').toString().toLowerCase().trim();
       var eFavorite = (existing[i][5]||'').toString().toLowerCase().trim();
-      var sameBet = (eLine === inputLine && eOdds === inputOdds && eFavorite === inputFavorite);
+      var sameBet = (eLine === inputLine && eOdds === inputOdds && eFavorite === inputFavorite &&
+                     (existing[i][11]||'').toString().toLowerCase() === inputProp);  // col L: player prop
 
       // Strategy 1: If we have commenceTime, use it as the event key
       if (inputCommenceTime) {
@@ -539,8 +686,26 @@ function addGame(d) {
   sheet.getRange(row,9).setValue('');  // Amt Won
   sheet.getRange(row,10).setValue(''); // Paid Out
   sheet.getRange(row,11).setValue(d.commenceTime||'');  // Actual Start Time
+  if (d.prop) {
+    sheet.getRange(row,12).setValue(propLabel_(d.prop));          // Player prop (label)
+    sheet.getRange(row,13).setValue(JSON.stringify(propSnapshot_(d.prop))); // Prop snapshot (for grading)
+  }
 
   return {success:true, row:row};
+}
+
+// "Ja Morant (MEM) · Points" — shown in the sheet and on the game card.
+function propLabel_(p) {
+  if (!p) return '';
+  return (p.player || '') + (p.team ? ' (' + p.team + ')' : '') + ' · ' + (p.market || '');
+}
+
+// Only the fields grading and display need, so the cell stays small.
+function propSnapshot_(p) {
+  return { player: p.player, team: p.team, opp: p.opp, market: p.market, stat: p.stat, line: p.line,
+           overOdds: p.overOdds, underOdds: p.underOdds, impliedOver: p.impliedOver, impliedUnder: p.impliedUnder,
+           fairOver: p.fairOver, book: p.book, updated: p.updated, athleteId: p.athleteId,
+           eventId: p.eventId, sport: p.sport, espnLeague: p.espnLeague, savedAt: new Date().toISOString() };
 }
 
 function updateGame(d) {
@@ -558,7 +723,7 @@ function getRecentGames() {
   var lastRow=sheet.getLastRow();
   if (lastRow<2) return [];
   var start=Math.max(2, lastRow - RECENT_GAMES_COUNT);
-  var vals=sheet.getRange(start,1,lastRow-start+1,11).getValues();
+  var vals=sheet.getRange(start,1,lastRow-start+1,13).getValues();
   var out=[];
   for (var i=vals.length-1;i>=0;i--){
     var r=vals[i]; if (!r[2]) continue;
@@ -575,10 +740,16 @@ function getRecentGames() {
       league:r[1]||'', game:r[2]||'', line:r[3]||'', odds:r[4]||'',
       favorite:r[5]||'', finalScore:r[6]||'', winner:r[7]||'',
       amtWon:r[8]||'', paidOut:r[9]==='X',
-      time:timeStr, commenceTime:ct
+      time:timeStr, commenceTime:ct,
+      prop:r[11]||'', propMeta:parsePropMeta_(r[12])
     });
   }
   return out;
+}
+
+function parsePropMeta_(v) {
+  if (!v) return null;
+  try { return JSON.parse(v); } catch (e) { return null; }
 }
 
 function getPayoutPeriodStats() {
@@ -687,8 +858,8 @@ function autoUpdateScores() {
   var lastRow=sheet.getLastRow();
   if (lastRow<2) return {updated:0,pending:0,errors:[]};
 
-  var data=sheet.getRange(2,1,lastRow-1,11).getValues();
-  var errors=[],updated=0,pending=0,groups={};
+  var data=sheet.getRange(2,1,lastRow-1,13).getValues();
+  var errors=[],updated=0,pending=0,groups={},summaries={};
 
   for (var i=0;i<data.length;i++){
     var r=data[i]; if (r[7]||!r[2]) continue; pending++;
@@ -706,6 +877,13 @@ function autoUpdateScores() {
       dateStr = r[0] ? Utilities.formatDate(new Date(r[0]), 'America/Chicago', 'yyyyMMdd') : '';
     }
 
+    // Player props are graded from the ESPN box score of the game saved with the pick.
+    if ((r[4]||'').toString().indexOf('PROP') === 0) {
+      var g = gradePropRow_(parsePropMeta_(r[12]), parseFloat(r[3]), r[5], summaries);
+      if (g && g.error) errors.push('Row ' + (i+2) + ': ' + g.error);
+      else if (g) { sheet.getRange(i+2,7,1,3).setValues([[g.scoreStr, g.winner, g.amt]]); updated++; }
+      continue;
+    }
     var key=league+'|'+dateStr;
     if (!groups[key]) groups[key]={league:league,dateStr:dateStr,rows:[]};
     groups[key].rows.push({rowNum:i+2,game:r[2],line:Math.abs(parseFloat(r[3])||0),odds:r[4]||'',favorite:r[5],commenceTime:r[10]?r[10].toString():''});
@@ -942,6 +1120,526 @@ function getLiveScores() {
   return liveGames;
 }
 
+// ─── PLAYER PROPS (ESPN / DraftKings, free, no key) ──────────────────────────
+// ESPN's core API exposes DraftKings player props per game (provider 100).
+// Rows don't say Over/Under, so each O/U pair is matched to DraftKings'
+// one-sided "Milestones" row (e.g. "8+" = Over 7.5): the side priced like the
+// milestone is the Over. Pairs that don't match cleanly are skipped.
+// Verified 2026-11-23: NBA and NHL have priced props; NFL lines have no prices;
+// NCAA F / NCAA MBB have none.
+var PROP_BAND = [0.45, 0.55];        // fair (no-vig) Over probability allowed
+var PROP_MAX = 8;                    // props shown per game
+var PROP_PER_MARKET = 3;             // max props of the same stat type (e.g. Points) per game
+var PROP_CACHE_SEC = 20 * 60;        // cache distilled props per game for 20 min
+var ESPN_PROVIDER_DK = 100;
+var PROP_MARKETS = {
+  // stat: list of components summed; each component lists acceptable box-score
+  // labels/keys (first match wins). Labels are checked by testPropGrading().
+  'NBA': { sport: 'basketball', league: 'nba', markets: [
+    { type: 'Total Points', ms: 'Points Milestones', label: 'Points', stat: [['PTS', 'points']] },
+    { type: 'Total Rebounds', ms: 'Rebounds Milestones', label: 'Rebounds', stat: [['REB', 'rebounds', 'totalRebounds']] },
+    { type: 'Total Assists', ms: 'Assists Milestones', label: 'Assists', stat: [['AST', 'assists']] },
+    { type: 'Total 3-Point Field Goals', ms: '3-Point Field Goals Milestones', label: '3-Pointers',
+      stat: [['3PT', '3PM', 'threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'threePointFieldGoalsMade']] },
+    { type: 'Total Points, Rebounds, and Assists', ms: 'Points + Assists + Rebounds Milestones', label: 'Pts+Reb+Ast',
+      stat: [['PTS', 'points'], ['REB', 'rebounds', 'totalRebounds'], ['AST', 'assists']] }
+  ]},
+  'NHL': { sport: 'hockey', league: 'nhl', markets: [
+    // ESPN hockey: S = shotsTotal (shots on goal; matches team totals). SOG is shootoutGoals: never use it.
+    { type: 'Total Shots on Goal', ms: 'Shots on Goal Milestones', label: 'Shots on Goal', stat: [['S', 'shotsTotal']] },
+    { type: 'Total Points', ms: 'Points Milestones', label: 'Points', stat: [['G', 'goals'], ['A', 'assists']] },
+    { type: 'Total Assists', ms: 'Assists Milestones', label: 'Assists', stat: [['A', 'assists']] }
+  ]},
+  // NFL: ESPN/DraftKings NFL props had lines but no prices (checked 2026-11-23), so
+  // prices come from Kalshi (free public market data). Each Kalshi market is
+  // "Player: N+" = Over N-0.5. For each stat the first series with an open event
+  // for the game is used. Football box scores split players into sections, each
+  // with its own YDS column, so stats are "section.LABEL".
+  'NFL': { sport: 'football', league: 'nfl', source: 'kalshi', markets: [
+    { series: ['KXNFLPASSYDS', 'KXNFLPASSYDSPROT'], label: 'Passing Yds', stat: [['passing.YDS', 'passing.passingYards']] },
+    { series: ['KXNFLPASSTDS', 'KXNFLPASSTDSPROT'], label: 'Passing TDs', stat: [['passing.TD', 'passing.passingTouchdowns']] },
+    { series: ['KXNFLRSHYDS', 'KXNFLRSHYDSPROT'], label: 'Rushing Yds', stat: [['rushing.YDS', 'rushing.rushingYards']] },
+    { series: ['KXNFLRECYDS', 'KXNFLRECYDSPROT'], label: 'Receiving Yds', stat: [['receiving.YDS', 'receiving.receivingYards']] },
+    { series: ['KXNFLREC', 'KXNFLRECPROT', 'KXNFLLADDERREC'], label: 'Receptions', stat: [['receiving.REC', 'receiving.receptions']] }
+  ]},
+  // NCAA F: no free source has college props (ESPN 0 rows, Kalshi none; checked 2026-11-23), so
+  // these come from The Odds API (FanDuel/Bovada). Costs 1 credit per market returned per game
+  // opened, so it is guarded by ODDS_API_FLOOR. College box scores use the NFL section labels.
+  'NCAA F': { sport: 'football', league: 'college-football', groups: '80', source: 'oddsapi',
+              oddsKey: 'americanfootball_ncaaf', markets: [
+    { key: 'player_pass_yds', label: 'Passing Yds', stat: [['passing.YDS', 'passing.passingYards']] },
+    { key: 'player_rush_yds', label: 'Rushing Yds', stat: [['rushing.YDS', 'rushing.rushingYards']] },
+    { key: 'player_reception_yds', label: 'Receiving Yds', stat: [['receiving.YDS', 'receiving.receivingYards']] },
+    { key: 'player_receptions', label: 'Receptions', stat: [['receiving.REC', 'receiving.receptions']] }
+  ]}
+};
+
+// Paid props (Odds API) are switched off while fewer than ODDS_API_FLOOR credits would remain.
+var ODDS_API_PROP_CACHE_SEC = 6 * 60 * 60;   // keep paid props 6h so reopening a game costs nothing
+var ODDS_API_BOOKS = ['draftkings', 'fanduel', 'betmgm', 'williamhill_us', 'bovada'];  // line source preference
+
+function headerVal_(resp, name) {
+  var h = resp.getHeaders(), want = name.toLowerCase();
+  for (var k in h) if (k.toLowerCase() === want) return h[k];
+  return null;
+}
+
+// Pure: Odds API per-event odds -> O/U candidates. Each player+stat takes its line from the
+// first book in ODDS_API_BOOKS order that has both sides at a .5 line. Players are keyed by
+// name (no ESPN id). Popularity = number of book+stat listings for the player.
+function oddsApiPropCandidates_(data, markets) {
+  var rank = function(k) { var i = ODDS_API_BOOKS.indexOf(k); return i < 0 ? 99 : i; };
+  var books = ((data || {}).bookmakers || []).slice().sort(function(a, b) { return rank(a.key) - rank(b.key); });
+  var pop = {};
+  books.forEach(function(b) {
+    (b.markets || []).forEach(function(m) {
+      var seen = {};
+      (m.outcomes || []).forEach(function(o) {
+        var id = 'name:' + normPlayer_(o.description);
+        if (o.description && !seen[id]) { seen[id] = 1; pop[id] = (pop[id] || 0) + 1; }
+      });
+    });
+  });
+  var out = [], done = {};
+  markets.forEach(function(mk) {
+    books.forEach(function(b) {
+      var m = (b.markets || []).filter(function(x) { return x.key === mk.key; })[0];
+      if (!m) return;
+      var pairs = {};
+      (m.outcomes || []).forEach(function(o) {
+        if (o.description) (pairs[o.description + '|' + o.point] = pairs[o.description + '|' + o.point] || {})[o.name] = o;
+      });
+      Object.keys(pairs).forEach(function(k) {
+        var ov = pairs[k].Over, un = pairs[k].Under;
+        if (!ov || !un) return;
+        var id = 'name:' + normPlayer_(ov.description), line = Number(ov.point);
+        if (done[id + '|' + mk.key] || line % 1 !== 0.5) return;
+        done[id + '|' + mk.key] = 1;
+        var pO = impliedProb_(ov.price), pU = impliedProb_(un.price);
+        out.push({
+          athleteId: id, player: ov.description, market: mk.label, stat: mk.stat, line: line,
+          overOdds: Number(ov.price), underOdds: Number(un.price),
+          impliedOver: pO, impliedUnder: pU, fairOver: pO / (pO + pU),
+          updated: m.last_update || '', pop: pop[id] || 0, book: b.title || b.key
+        });
+      });
+    });
+  });
+  return out;
+}
+
+function getOddsApiProps_(cfg, homeTeam, awayTeam, commenceTime) {
+  var base = 'https://api.the-odds-api.com/v4/sports/' + cfg.oddsKey;
+  var key = encodeURIComponent(oddsApiKey_());
+  // /events costs nothing and its headers report credits left: check the budget before spending.
+  var r = UrlFetchApp.fetch(base + '/events?apiKey=' + key, { muteHttpExceptions: true });
+  noteOddsApiCredits_(r);
+  if (r.getResponseCode() !== 200) return { cands: [], reason: 'Player props unavailable right now' };
+  var left = Number(headerVal_(r, 'x-requests-remaining'));
+  if (isNaN(left) || left - cfg.markets.length < ODDS_API_FLOOR) {
+    return { cands: [], paused: true,
+             reason: 'College props paused: Odds API credits are low (' + (isNaN(left) ? '?' : left) +
+                     ' left). Regular odds still work.' };
+  }
+  var start = new Date(commenceTime).getTime();
+  var oe = (JSON.parse(r.getContentText()) || []).filter(function(e) {
+    return teamsMatch(e.home_team, homeTeam) && teamsMatch(e.away_team, awayTeam) &&
+           Math.abs(new Date(e.commence_time).getTime() - start) <= 2 * 60 * 60 * 1000;
+  })[0];
+  if (!oe) return { cands: [], reason: 'No player props posted for this game yet' };
+  var r2 = UrlFetchApp.fetch(base + '/events/' + oe.id + '/odds?apiKey=' + key + '&regions=us&oddsFormat=american' +
+                             '&markets=' + cfg.markets.map(function(m) { return m.key; }).join(','),
+                             { muteHttpExceptions: true });
+  noteOddsApiCredits_(r2);
+  if (r2.getResponseCode() !== 200) return { cands: [], reason: 'Player props unavailable right now' };
+  var cands = oddsApiPropCandidates_(JSON.parse(r2.getContentText()), cfg.markets);
+  return { cands: cands, reason: cands.length ? '' : 'No player props posted for this game yet' };
+}
+
+// Odds API props have names but no teams: look the kept players up on the two ESPN rosters.
+function rosterTeams_(cfg, ev) {
+  var ids = Object.keys(ev.teams), map = {};
+  var resps = UrlFetchApp.fetchAll(ids.map(function(id) {
+    return { url: 'https://site.web.api.espn.com/apis/site/v2/sports/' + cfg.sport + '/' + cfg.league +
+                  '/teams/' + id + '/roster', muteHttpExceptions: true };
+  }));
+  resps.forEach(function(r, i) {
+    var j = {};
+    try { j = JSON.parse(r.getContentText()); } catch (e) {}
+    (j.athletes || []).forEach(function(g) {
+      (g.items || []).forEach(function(a) { map['name:' + normPlayer_(a.displayName)] = ev.teams[ids[i]]; });
+    });
+  });
+  return map;
+}
+
+var KALSHI_API = 'https://api.elections.kalshi.com/trade-api/v2';
+var KALSHI_MAX_SPREAD = 0.04;   // skip markets whose bid/ask gap is wider than 4 cents (price not reliable)
+
+// "Ja'Marr Chase Jr." -> "jamarrchase": used to match Kalshi names to ESPN box scores.
+function normPlayer_(s) {
+  return String(s || '').toLowerCase().normalize('NFD')
+    .replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').replace(/[^a-z]/g, '');
+}
+
+function probToAmerican_(p) {
+  return p >= 0.5 ? -Math.round(100 * p / (1 - p)) : Math.round(100 * (1 - p) / p);
+}
+
+// Pure: Kalshi "Player: N+" markets -> O/U candidates. Over = buy Yes at the ask,
+// Under = buy No at (1 - bid); fair Over = mid price.
+function kalshiPropCandidates_(kms, mk) {
+  var out = [];
+  // Popularity: total contracts traded across all of a player's markets in this stat.
+  var vol = {};
+  (kms || []).forEach(function(m) {
+    var n = String(m.yes_sub_title || '').split(':')[0].trim();
+    vol[n] = (vol[n] || 0) + (parseFloat(m.volume_fp) || 0);
+  });
+  (kms || []).forEach(function(m) {
+    if (m.status && m.status !== 'active') return;
+    if (m.strike_type && m.strike_type !== 'greater') return;
+    var line = Number(m.floor_strike);
+    if (isNaN(line) || line % 1 !== 0.5) return;
+    var bid = parseFloat(m.yes_bid_dollars), ask = parseFloat(m.yes_ask_dollars);
+    if (!(bid > 0 && ask < 1 && ask >= bid) || ask - bid > KALSHI_MAX_SPREAD) return;
+    var name = String(m.yes_sub_title || '').split(':')[0].trim();
+    if (!name) return;
+    out.push({
+      athleteId: 'name:' + normPlayer_(name), player: name, kalshiSeg: String(m.ticker || '').split('-')[2] || '',
+      market: mk.label, stat: mk.stat, line: line,
+      overOdds: probToAmerican_(ask), underOdds: probToAmerican_(1 - bid),
+      impliedOver: ask, impliedUnder: 1 - bid, fairOver: (bid + ask) / 2,
+      updated: m.updated_time || '', pop: vol[name] || 0
+    });
+  });
+  return out;
+}
+
+// Pure: team for a Kalshi market segment like "WASSDIGGS3", given the event's
+// Kalshi codes ["CIN","WAS"] and ESPN abbreviations ["CIN","WSH"].
+function kalshiTeam_(seg, kalshiCodes, espnAbbrs) {
+  var code = kalshiCodes.filter(function(c) { return seg.indexOf(c) === 0; })[0];
+  if (!code) return '';
+  if (espnAbbrs.indexOf(code) >= 0) return code;
+  return espnAbbrs.filter(function(a) { return kalshiCodes.indexOf(a) < 0; })[0] || code;
+}
+
+function getKalshiProps_(cfg, ev, homeTeam, awayTeam, commenceTime) {
+  var dateCode = '-' + Utilities.formatDate(new Date(commenceTime), 'America/New_York', 'yyMMMdd').toUpperCase();
+  var all = [];
+  cfg.markets.forEach(function(mk) { mk.series.forEach(function(s) { all.push(s); }); });
+  var parse = function(r) { try { return JSON.parse(r.getContentText()); } catch (e) { return {}; } };
+  var evResps = UrlFetchApp.fetchAll(all.map(function(s) {
+    return { url: KALSHI_API + '/events?series_ticker=' + s + '&status=open&limit=100', muteHttpExceptions: true };
+  }));
+  var eventFor = {};
+  evResps.forEach(function(r, i) {
+    (parse(r).events || []).forEach(function(e) {
+      if (eventFor[all[i]] || String(e.event_ticker).indexOf(dateCode) < 0) return;
+      var t = String(e.title || '').split(':')[0].split(' vs ');
+      if (t.length !== 2) return;
+      if ((teamsMatch(t[0], awayTeam) && teamsMatch(t[1], homeTeam)) ||
+          (teamsMatch(t[0], homeTeam) && teamsMatch(t[1], awayTeam))) eventFor[all[i]] = e;
+    });
+  });
+  var chosen = [];
+  cfg.markets.forEach(function(mk) {
+    var s = mk.series.filter(function(x) { return eventFor[x]; })[0];
+    if (s) chosen.push({ mk: mk, ev: eventFor[s] });
+  });
+  if (!chosen.length) return { cands: [], found: false };
+  var mResps = UrlFetchApp.fetchAll(chosen.map(function(c) {
+    return { url: KALSHI_API + '/markets?event_ticker=' + c.ev.event_ticker + '&limit=1000', muteHttpExceptions: true };
+  }));
+  var espnAbbrs = Object.keys(ev.teams).map(function(k) { return ev.teams[k]; });
+  var cands = [];
+  chosen.forEach(function(c, i) {
+    var codes = (String(c.ev.sub_title || '').match(/^([A-Z]+) vs ([A-Z]+)/) || []).slice(1);
+    kalshiPropCandidates_(parse(mResps[i]).markets, c.mk).forEach(function(p) {
+      p.team = kalshiTeam_(p.kalshiSeg, codes, espnAbbrs);
+      p.opp = p.team ? (espnAbbrs.filter(function(a) { return a !== p.team; })[0] || '') : '';
+      cands.push(p);
+    });
+  });
+  return { cands: cands, found: true };
+}
+
+function impliedProb_(american) {
+  var a = Number(american);
+  return a < 0 ? -a / (-a + 100) : 100 / (a + 100);
+}
+
+function espnJson_(url) {
+  var r = UrlFetchApp.fetch(url.replace('http://', 'https://'), { muteHttpExceptions: true });
+  var t = r.getContentText();
+  if (r.getResponseCode() !== 200 || t.charAt(0) !== '{') return null;
+  return JSON.parse(t);
+}
+
+// Find the ESPN event for an Odds API game (team names + start time within 2h).
+function findEspnEvent_(cfg, homeTeam, awayTeam, commenceTime) {
+  var start = new Date(commenceTime);
+  var dateStr = Utilities.formatDate(start, 'America/Chicago', 'yyyyMMdd');
+  var sb = espnJson_('https://site.web.api.espn.com/apis/site/v2/sports/' + cfg.sport + '/' + cfg.league +
+                     '/scoreboard?dates=' + dateStr + '&limit=300' + (cfg.groups ? '&groups=' + cfg.groups : ''));
+  var events = (sb && sb.events) || [];
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i], comp = (ev.competitions || [])[0] || {}, home = null, away = null;
+    (comp.competitors || []).forEach(function(c) { if (c.homeAway === 'home') home = c; else away = c; });
+    if (!home || !away) continue;
+    var hm = teamsMatch(homeTeam, (home.team || {}).displayName) || teamsMatch(homeTeam, (home.team || {}).shortDisplayName);
+    var aw = teamsMatch(awayTeam, (away.team || {}).displayName) || teamsMatch(awayTeam, (away.team || {}).shortDisplayName);
+    if (!hm || !aw) continue;
+    if (Math.abs(new Date(ev.date).getTime() - start.getTime()) > 2 * 60 * 60 * 1000) continue;
+    var teams = {};
+    teams[(home.team || {}).id] = (home.team || {}).abbreviation;
+    teams[(away.team || {}).id] = (away.team || {}).abbreviation;
+    return { id: ev.id, teams: teams };
+  }
+  return null;
+}
+
+function fetchPropRows_(cfg, eventId) {
+  var items = [], page = 1, pages = 1;
+  do {
+    var j = espnJson_('https://sports.core.api.espn.com/v2/sports/' + cfg.sport + '/leagues/' + cfg.league +
+                      '/events/' + eventId + '/competitions/' + eventId + '/odds/' + ESPN_PROVIDER_DK +
+                      '/propBets?limit=1000&page=' + page);
+    if (!j) break;
+    items = items.concat(j.items || []);
+    pages = j.pageCount || 1;
+    page++;
+  } while (page <= pages);
+  return items;
+}
+
+// Pure: turn ESPN prop rows into priced O/U candidates with a known Over side.
+function buildPropCandidates_(items, markets) {
+  var athId = function(it) { return it.athlete && it.athlete.$ref ? ((it.athlete.$ref.match(/athletes\/(\d+)/) || [])[1] || null) : null; };
+  var price = function(it) { return it.odds && it.odds.american ? Number(it.odds.american.value) : NaN; };
+  var target = function(it) { return it.current && it.current.target ? Number(it.current.target.value) : NaN; };
+  // Popularity: DraftKings posts many more props (every stat, long milestone ladders)
+  // for stars than for bench players, so the row count per player is a good proxy.
+  var pop = {};
+  items.forEach(function(it) { var id = athId(it); if (id) pop[id] = (pop[id] || 0) + 1; });
+  var out = [];
+  markets.forEach(function(mk) {
+    var groups = {}, miles = {};
+    items.forEach(function(it) {
+      var tn = (it.type || {}).name, id = athId(it);
+      if (!id || isNaN(price(it)) || isNaN(target(it))) return;
+      if (tn === mk.type) { var k = id + '|' + target(it); (groups[k] = groups[k] || []).push(it); }
+      else if (tn === mk.ms) { var mkey = id + '|' + target(it); miles[mkey] = miles[mkey] || it; }
+    });
+    Object.keys(groups).forEach(function(k) {
+      var g = groups[k];
+      if (g.length !== 2) return;
+      var line = target(g[0]);
+      if (line % 1 !== 0.5) return;                           // .5 lines only: no pushes
+      var m = miles[athId(g[0]) + '|' + (line + 0.5)];          // "N+" milestone == Over (N - 0.5)
+      if (!m) return;
+      var pm = impliedProb_(price(m));
+      var d0 = Math.abs(impliedProb_(price(g[0])) - pm), d1 = Math.abs(impliedProb_(price(g[1])) - pm);
+      var lo = Math.min(d0, d1), hi = Math.max(d0, d1);
+      if (lo > 0.03 || hi - lo < 0.02) return;                  // not a clean match: skip, never guess
+      var over = d0 < d1 ? g[0] : g[1], under = d0 < d1 ? g[1] : g[0];
+      var pO = impliedProb_(price(over)), pU = impliedProb_(price(under));
+      out.push({
+        athleteId: athId(over), market: mk.label, marketType: mk.type, stat: mk.stat, line: line,
+        overOdds: price(over), underOdds: price(under),
+        impliedOver: pO, impliedUnder: pU, fairOver: pO / (pO + pU),
+        updated: over.lastUpdated || '', pop: pop[athId(over)] || 0
+      });
+    });
+  });
+  return out;
+}
+
+// Pure: keep only 45-55% fair (every pick is a fair bet), then most popular players
+// first (ties: closest to 50%), 1 per player, max PROP_PER_MARKET per stat type.
+function selectProps_(cands) {
+  var pool = cands.filter(function(c) { return c.fairOver >= PROP_BAND[0] && c.fairOver <= PROP_BAND[1]; })
+    .sort(function(a, b) {
+      return ((b.pop || 0) - (a.pop || 0)) || (Math.abs(a.fairOver - 0.5) - Math.abs(b.fairOver - 0.5));
+    });
+  var out = [], byPlayer = {}, byMarket = {};
+  for (var i = 0; i < pool.length && out.length < PROP_MAX; i++) {
+    var c = pool[i];
+    if (byPlayer[c.athleteId] || (byMarket[c.market] || 0) >= PROP_PER_MARKET) continue;
+    byPlayer[c.athleteId] = 1; byMarket[c.market] = (byMarket[c.market] || 0) + 1;
+    out.push(c);
+  }
+  return out;
+}
+
+function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
+  var cfg = PROP_MARKETS[league];
+  if (!cfg) return { props: [], reason: 'Player props are not available for ' + league };
+  if (!isPickOpen_(commenceTime)) return { props: [], reason: 'Picks are locked for this game' };
+  var cache = CacheService.getScriptCache();
+  var key = 'props_v1_' + Utilities.base64EncodeWebSafe(league + '|' + homeTeam + '|' + awayTeam + '|' + commenceTime);
+  var hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  try {
+    var ev = findEspnEvent_(cfg, homeTeam, awayTeam, commenceTime);
+    if (!ev) return { props: [], reason: 'Could not find this game on ESPN' };
+    if (cfg.source === 'kalshi') {
+      var k = getKalshiProps_(cfg, ev, homeTeam, awayTeam, commenceTime);
+      var kp = selectProps_(k.cands);
+      kp.forEach(function(p) { p.eventId = ev.id; p.sport = cfg.sport; p.espnLeague = cfg.league; p.book = 'Kalshi'; });
+      var kout = { props: kp, fetchedAt: new Date().toISOString(),
+                   reason: kp.length ? '' : !k.found ? 'No Kalshi player markets for this game yet'
+                         : 'No player props between 45% and 55% for this game' };
+      try { cache.put(key, JSON.stringify(kout), PROP_CACHE_SEC); } catch (e) {}
+      return kout;
+    }
+    if (cfg.source === 'oddsapi') {
+      var o = getOddsApiProps_(cfg, homeTeam, awayTeam, commenceTime);
+      var op = selectProps_(o.cands);
+      var teamOf = op.length ? rosterTeams_(cfg, ev) : {};
+      var abbrs = Object.keys(ev.teams).map(function(k) { return ev.teams[k]; });
+      op.forEach(function(p) {
+        p.team = teamOf[p.athleteId] || '';
+        p.opp = p.team ? (abbrs.filter(function(a) { return a !== p.team; })[0] || '') : '';
+        p.eventId = ev.id; p.sport = cfg.sport; p.espnLeague = cfg.league;
+      });
+      var oout = { props: op, fetchedAt: new Date().toISOString(),
+                   reason: op.length ? '' : o.reason || 'No player props between 45% and 55% for this game' };
+      // Paid lookups that found props are kept 6h; empty/paused results are retried after 20 min.
+      try { cache.put(key, JSON.stringify(oout), o.cands.length ? ODDS_API_PROP_CACHE_SEC : PROP_CACHE_SEC); } catch (e) {}
+      return oout;
+    }
+    var rows = fetchPropRows_(cfg, ev.id);
+    var picks = selectProps_(buildPropCandidates_(rows, cfg.markets));
+    var priced = rows.some(function(it) { return it.odds && it.odds.american; });
+    // Names + teams for the few props we keep (one small request each, in parallel).
+    var resps = picks.length ? UrlFetchApp.fetchAll(picks.map(function(p) {
+      return { url: 'https://sports.core.api.espn.com/v2/sports/' + cfg.sport + '/leagues/' + cfg.league +
+                    '/athletes/' + p.athleteId, muteHttpExceptions: true };
+    })) : [];
+    var teamIds = Object.keys(ev.teams);
+    picks.forEach(function(p, i) {
+      var a = {};
+      try { a = JSON.parse(resps[i].getContentText()); } catch (e) {}
+      var tid = (((a.team || {}).$ref || '').match(/teams\/(\d+)/) || [])[1];
+      p.player = a.displayName || a.fullName || ('Player ' + p.athleteId);
+      p.team = ev.teams[tid] || '';
+      p.opp = p.team ? ev.teams[teamIds[0] === tid ? teamIds[1] : teamIds[0]] : '';
+      p.eventId = ev.id; p.sport = cfg.sport; p.espnLeague = cfg.league; p.book = 'DraftKings';
+    });
+    var out = { props: picks, fetchedAt: new Date().toISOString(),
+                reason: picks.length ? '' : !rows.length ? 'No player props posted for this game yet'
+                      : !priced ? 'Player prop prices not posted for this game yet'
+                      : 'No player props between 45% and 55% for this game' };
+    try { cache.put(key, JSON.stringify(out), PROP_CACHE_SEC); } catch (e) {}
+    return out;
+  } catch (e) {
+    return { props: [], reason: 'Player props unavailable right now' };
+  }
+}
+
+// ESPN box score for one game (live or final).
+function getEspnSummary_(sport, league, eventId) {
+  return espnJson_('https://site.web.api.espn.com/apis/site/v2/sports/' + sport + '/' + league + '/summary?event=' + eventId);
+}
+
+function summaryStatus_(summary) {
+  var st = ((((summary || {}).header || {}).competitions || [])[0] || {}).status || {};
+  var t = st.type || {};
+  return { state: t.state || '', completed: !!t.completed, detail: t.shortDetail || t.detail || '' };
+}
+
+// Pure: a player's stat from an ESPN summary.
+//   {played:true, value}  stat found
+//   {played:false}        player listed as did-not-play, or (basketball/hockey) absent from a box score that exists
+//   null                  can't tell: no box score, missing column, or a football player absent from every
+//                         section (football lists only players with stats) -> caller leaves the bet pending
+// Stat names may be "section.LABEL" (football): a player who appears in other sections but not this one
+// had none of that stat, so it counts as 0.
+function findAthleteStat_(summary, athleteId, stat) {
+  var teams = (((summary || {}).boxscore || {}).players) || [];
+  if (!teams.length) return null;
+  var entries = [];
+  // Kalshi props carry no ESPN id, so they are keyed "name:<normalized name>".
+  var byName = String(athleteId).indexOf('name:') === 0 ? String(athleteId).slice(5) : null;
+  teams.forEach(function(t) {
+    (t.statistics || []).forEach(function(grp) {
+      (grp.athletes || []).forEach(function(a) {
+        if (byName ? normPlayer_((a.athlete || {}).displayName) !== byName
+                   : String((a.athlete || {}).id) !== String(athleteId)) return;
+        entries.push({ name: grp.name || '', labels: (grp.labels || []).map(String),
+                       keys: (grp.keys || grp.names || []).map(String), stats: a.stats || [],
+                       dnp: !!a.didNotPlay || !(a.stats || []).length });
+      });
+    });
+  });
+  var sectioned = stat.some(function(alts) { return alts.some(function(x) { return x.indexOf('.') > 0; }); });
+  if (!entries.length) return sectioned ? null : { played: false };
+  var live = entries.filter(function(e) { return !e.dnp; });
+  if (!live.length) return { played: false };
+  var total = 0;
+  for (var c = 0; c < stat.length; c++) {
+    var v = NaN, sectionAbsent = false;
+    for (var i = 0; i < stat[c].length && isNaN(v); i++) {
+      var alt = stat[c][i], dot = alt.indexOf('.');
+      var sec = dot > 0 ? alt.slice(0, dot) : null, col = dot > 0 ? alt.slice(dot + 1) : alt;
+      var pool = sec ? live.filter(function(e) { return e.name === sec; }) : live;
+      if (sec && !pool.length) { sectionAbsent = true; continue; }
+      for (var j = 0; j < pool.length && isNaN(v); j++) {
+        var idx = pool[j].labels.indexOf(col); if (idx < 0) idx = pool[j].keys.indexOf(col);
+        // parseFloat reads the leading number: "3-7" -> 3 (made), "22/31" -> 22, "-3" -> -3 (negative yards).
+        if (idx >= 0) v = parseFloat(String(pool[j].stats[idx]));
+      }
+    }
+    if (isNaN(v) && sectionAbsent) v = 0;   // played, but none of this stat
+    if (isNaN(v)) return null;              // column not found: never guess
+    total += v;
+  }
+  return { played: true, value: total };
+}
+
+// Live stat lines for pending prop rows (rows = "12,15"). Used by the home tab.
+function getLivePropStats(rows) {
+  var list = String(rows || '').split(',').map(function(s) { return parseInt(s, 10); })
+    .filter(function(n) { return n >= 2; }).slice(0, 30);
+  if (!list.length) return {};
+  var cache = CacheService.getScriptCache(), ck = 'liveprops_' + list.join('_');
+  var hit = cache.get(ck);
+  if (hit) return JSON.parse(hit);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Game List');
+  var out = {}, summaries = {};
+  list.forEach(function(r) {
+    var meta = null;
+    try { meta = JSON.parse(sheet.getRange(r, 13).getValue() || 'null'); } catch (e) {}
+    if (!meta || !meta.eventId) return;
+    var sk = meta.sport + '/' + meta.espnLeague + '/' + meta.eventId;
+    if (!(sk in summaries)) summaries[sk] = getEspnSummary_(meta.sport, meta.espnLeague, meta.eventId);
+    var s = summaries[sk]; if (!s) return;
+    var st = summaryStatus_(s), v = findAthleteStat_(s, meta.athleteId, meta.stat);
+    out[r] = { state: st.state, detail: st.detail, played: v ? v.played : null, value: v && v.played ? v.value : null };
+  });
+  try { cache.put(ck, JSON.stringify(out), 20); } catch (e) {}
+  return out;
+}
+
+// Grade one prop row from its stored snapshot. Returns null to leave it pending.
+function gradePropRow_(meta, line, favPicker, summaries) {
+  if (!meta || !meta.eventId) return { error: 'prop row has no ESPN game id' };
+  var sk = meta.sport + '/' + meta.espnLeague + '/' + meta.eventId;
+  if (!(sk in summaries)) summaries[sk] = getEspnSummary_(meta.sport, meta.espnLeague, meta.eventId);
+  var s = summaries[sk];
+  if (!s || !summaryStatus_(s).completed) return null;
+  var v = findAthleteStat_(s, meta.athleteId, meta.stat);
+  if (!v) return { error: meta.player + ' ' + meta.market + ': stat not in the ESPN box score (player may not have recorded one) - grade by hand' };
+  var label = meta.player + ' ' + meta.market;
+  if (!v.played) return { scoreStr: label + ': VOID (did not play)', winner: 'Split', amt: 0 };
+  if (v.value === line) return { scoreStr: label + ': ' + v.value + ' (push)', winner: 'Split', amt: 0 };
+  var overHit = v.value > line;
+  return { scoreStr: label + ': ' + v.value + ' (' + (overHit ? 'Over' : 'Under') + ' ' + line + ')',
+           winner: overHit ? favPicker : (favPicker === 'Matt' ? 'Sam' : 'Matt'), amt: BET_AMOUNT };
+}
+
 function buildSummary() {
   var ss=SpreadsheetApp.getActiveSpreadsheet(),gl=ss.getSheetByName('Game List'),sum=ss.getSheetByName('Summary');
   var lastRow=gl.getLastRow(); if (lastRow<2) return;
@@ -1076,12 +1774,11 @@ function dailyPayoutAlert() {
     '',
     'View the tracker: https://lomas282-tech.github.io/Matt-vs-Sam',
   ].join('\n');
-  MailApp.sendEmail({
-    to: 'lomas282@gmail.com',
-    cc: 'sammynewman1985@gmail.com',
-    subject: subject,
-    body: body
-  });
+  var to = personEmail_('matt'), cc = personEmail_('sam');
+  if (!to) { Logger.log('MATT_EMAIL is not set in Script Properties; payout email not sent.'); return; }
+  var mail = { to: to, subject: subject, body: body };
+  if (cc) mail.cc = cc;
+  MailApp.sendEmail(mail);
 }
 
 function createDailyTrigger() {
@@ -1101,6 +1798,8 @@ function doGet(e) {
   else if (action==='getLiveScores') result=getLiveScores();
   else if (action==='getPayoutPeriodStats') result=getPayoutPeriodStats();
   else if (action==='getTeamLogos') result=getTeamLogos(e.parameter.league);
+  else if (action==='getPlayerProps') result=getPlayerProps(e.parameter.league, e.parameter.home, e.parameter.away, e.parameter.commenceTime);
+  else if (action==='getLivePropStats') result=getLivePropStats(e.parameter.rows);
   else result={error:'Unknown action'};
   return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -1116,7 +1815,8 @@ function getTeamLogos(league) {
   var cached = cache.get(cacheKey);
   if (cached) return JSON.parse(cached);
   try {
-    var url = 'https://site.api.espn.com/apis/site/v2/sports/' + sportKey + '/teams?limit=1000';
+    // site.api.espn.com returns 403 from Apps Script; site.web.api.espn.com works (verified 2026-11-23).
+    var url = 'https://site.web.api.espn.com/apis/site/v2/sports/' + sportKey + '/teams?limit=1000';
     var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
     if (resp.getResponseCode() !== 200) return [];
     var d = JSON.parse(resp.getContentText());
@@ -1204,4 +1904,3 @@ function getBalance() {
     currentMonthKey:currentMonthKey,currentWeekKey:currentWeekKey
   };
 }
-

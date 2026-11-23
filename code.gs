@@ -7,6 +7,7 @@ var RECENT_GAMES_COUNT = 49; // how many sheet rows to show in Recent Games
 var ODDS_CACHE_SHEET = 'OddsCache';   // hidden tab: league | json | fetchedAt(ms)
 var ODDS_TTL_MS = 6 * 60 * 60 * 1000; // 6h: how long cached odds are considered fresh
 var ODDS_FAIL_TTL_MS = 60 * 1000;     // 60s: negative-cache window after a failed pull
+var PICK_GRACE_MS = 15 * 60 * 1000;   // picks stay open this long after start (delays), then lock
 // ────────────────────────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -161,7 +162,25 @@ function writeOddsCache_(league, jsonStr) {
   } catch (e) {}
 }
 
+// True while a game is still pickable: before start + PICK_GRACE_MS.
+// Unknown/unparseable start time = open (manual entries have no start time).
+function isPickOpen_(commenceTime, nowMs) {
+  var t = new Date(commenceTime).getTime();
+  if (!commenceTime || isNaN(t)) return true;
+  return (nowMs || Date.now()) < t + PICK_GRACE_MS;
+}
+
+// Cached game lists are snapshots from fetch time, so re-apply the lock window
+// on every read; otherwise a 6h-old cache can still offer games that started.
 function getGamesForLeague(league) {
+  var games = fetchGamesForLeague_(league);
+  if (!games.length || games[0].error) return games;
+  var now = Date.now();
+  return games.filter(function(g) { return isPickOpen_(g.commenceTime, now); })
+    .map(function(g) { g.startingSoon = new Date(g.commenceTime).getTime() <= now; return g; });
+}
+
+function fetchGamesForLeague_(league) {
   var cacheKey = 'odds_' + league.replace(/\s/g, '_');
   var cache = CacheService.getScriptCache();
   try {
@@ -228,7 +247,7 @@ function getGamesForLeague(league) {
     // Soccer leagues use full team names (no abbreviation needed)
     var isSoccer = (league === 'Premier League' || league === 'Champions League');
     var now = new Date();
-    var cutoff = new Date(now.getTime() - 30 * 60 * 1000);
+    var cutoff = new Date(now.getTime() - PICK_GRACE_MS);
 
     function sn(n) {
       if (isSoccer) return n; // keep full team name for soccer
@@ -449,6 +468,9 @@ function resolveScore(d) {
 //   2. Fallback (manual entry): match on game + date + line + odds + favorite.
 // ─────────────────────────────────────────────────────────────────────────────
 function addGame(d) {
+  if (d.commenceTime && !isPickOpen_(d.commenceTime)) {
+    return {locked:true, error:'Picks locked: game started more than ' + (PICK_GRACE_MS/60000) + ' min ago'};
+  }
   var sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Game List');
   var lastRow=sheet.getLastRow();
 

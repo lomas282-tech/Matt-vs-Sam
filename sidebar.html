@@ -258,7 +258,7 @@ function fmt(n){return n===null||n===undefined?'':(n>0?'+'+n:''+n);}
 
 // ── Player props ─────────────────────────────────────────────────────────────
 var PROP_LEAGUES=['NBA','NHL','NFL','NCAA F','MLB'];
-var GAME_BET_CATS={NBA:'Halves & Quarters',NHL:'Periods',MLB:'First 5 Innings'};
+var GAME_BET_CATS={NBA:'Halves & Quarters',NHL:'Periods',MLB:'First 5 Innings',NFL:'Halves & Quarters'};
 var _sbProps=[], _sbProp=null;
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function setOddsLabels(isProp){

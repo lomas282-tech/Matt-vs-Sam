@@ -76,6 +76,7 @@ button{width:100%;padding:8px;border:none;border-radius:6px;font-size:13px;font-
       <div class="odds-picker">
         <div class="pick-label">Select market <span style="font-weight:normal;color:#aaa">(auto = closest to -110 / 50-50)</span></div>
         <div id="mkt-options"></div>
+        <div id="prop-box"></div>
       </div>
     </div>
 
@@ -194,12 +195,19 @@ function onGamePicked() {
     html+='<div class="mkt-name">'+mktLabel+(isBest?' <span class="best-badge">&#x2022; 50/50</span>':'')+'</div>';
     html+='<div class="mkt-odds">'+o.oddsStr+'</div></div>';
   });
+  // Player props: same server call as the phone app (leagues with priced props only).
+  if(PROP_LEAGUES.indexOf(document.getElementById('league').value)>=0){
+    html+='<div class="market-btn" id="mbtn-props" onclick="loadPropsSb('+idx+')"><div class="mkt-name">Player Props</div>'+
+          '<div class="mkt-odds">Up to 5 player bets, 45–55% only</div></div>';
+  }
+  _sbProp=null; document.getElementById('prop-box').innerHTML='';
   document.getElementById('mkt-options').innerHTML=html;
   picker.style.display='block';
   applyOption(g, g.options.findIndex(function(o){return o.type===g.bestType;}));
 }
 
 function selectMkt(gameIdx, optIdx) {
+  _sbProp=null; document.getElementById('prop-box').innerHTML='';
   document.querySelectorAll('.market-btn').forEach(function(b){b.classList.remove('selected');});
   document.getElementById('mbtn-'+optIdx).classList.add('selected');
   applyOption(_allGames[gameIdx], optIdx);
@@ -232,9 +240,59 @@ function applyOption(g, optIdx) {
     if(favEl) favLabel=favEl.previousElementSibling;
   }
   if(favLabel) favLabel.textContent=o.type==='total'?'Over picks':'Fav picks';
+  setOddsLabels(false);
 }
 
 function fmt(n){return n===null||n===undefined?'':(n>0?'+'+n:''+n);}
+
+// ── Player props ─────────────────────────────────────────────────────────────
+var PROP_LEAGUES=['NBA','NHL','NFL'];
+var _sbProps=[], _sbProp=null;
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function pct(p){return (p*100).toFixed(1)+'%';}
+function setOddsLabels(isProp){
+  document.getElementById('oddsVal').previousElementSibling.textContent=isProp?'Over Odds':'Fav Odds';
+  document.getElementById('dogOddsVal').previousElementSibling.textContent=isProp?'Under Odds':'Dog Odds';
+  document.getElementById('team1').previousElementSibling.textContent=isProp?'Away team':'Team 1 (Fav)';
+  document.getElementById('team2').previousElementSibling.textContent=isProp?'Home team':'Team 2 (Dog)';
+}
+function loadPropsSb(idx){
+  var g=_allGames[idx]; if(!g) return;
+  _sbProp=null; _sbProps=[];
+  document.querySelectorAll('.market-btn').forEach(function(b){b.classList.remove('selected');});
+  document.getElementById('mbtn-props').classList.add('selected');
+  ['team1','team2','line','oddsVal','dogOddsVal'].forEach(function(id){document.getElementById(id).value='';});
+  var box=document.getElementById('prop-box');
+  box.innerHTML='<div class="spinner">Finding balanced player props...</div>';
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(parseInt(document.getElementById('gameSelect').value)!==idx) return; // user picked another game
+      _sbProps=(r&&r.props)||[];
+      if(!_sbProps.length){box.innerHTML='<div class="info-box">'+esc((r&&(r.reason||r.error))||'No player props for this game')+'</div>';return;}
+      box.innerHTML=_sbProps.map(function(p,i){
+        return '<div class="market-btn" id="sbprop-'+i+'" onclick="selectPropSb('+i+')" style="display:block">'+
+          '<div class="mkt-name">'+esc(p.player)+' <span style="font-weight:normal;color:#888">'+esc(p.team)+(p.opp?' vs '+esc(p.opp):'')+'</span></div>'+
+          '<div class="mkt-odds"><b>'+esc(p.market)+' · O/U '+p.line+'</b></div>'+
+          '<div class="mkt-odds">Over '+fmt(p.overOdds)+' ('+pct(p.impliedOver)+') · Under '+fmt(p.underOdds)+' ('+pct(p.impliedUnder)+')</div>'+
+          '<div class="mkt-odds" style="color:#888">Fair Over '+pct(p.fairOver)+' · '+esc(p.book)+'</div></div>';
+      }).join('');
+    })
+    .withFailureHandler(function(e){box.innerHTML='<div class="err-box">Player props unavailable: '+esc(e)+'</div>';})
+    .getPlayerProps(document.getElementById('league').value, g.homeTeam, g.awayTeam, g.commenceTime);
+}
+function selectPropSb(i){
+  var p=_sbProps[i], g=_allGames[parseInt(document.getElementById('gameSelect').value)];
+  if(!p||!g) return;
+  _sbProp=p;
+  document.querySelectorAll('#prop-box .market-btn').forEach(function(b){b.classList.remove('selected');});
+  document.getElementById('sbprop-'+i).classList.add('selected');
+  document.getElementById('team1').value=g.sheetAway; document.getElementById('team2').value=g.sheetHome;
+  document.getElementById('line').value=p.line;
+  document.getElementById('oddsVal').value=fmt(p.overOdds); document.getElementById('dogOddsVal').value=fmt(p.underOdds);
+  if(g.gameDate) document.getElementById('date').value=g.gameDate;
+  document.getElementById('favorite').previousElementSibling.textContent='Over picks';
+  setOddsLabels(true);
+}
 
 function addGame(){
   var t1=document.getElementById('team1').value.trim(),t2=document.getElementById('team2').value.trim();
@@ -253,8 +311,10 @@ function addGame(){
   var isTotal = selectedOpt && selectedOpt.type === 'total';
   // For O/U bets, prefix odds with "O/U " so sheet and app can identify the bet type
   var rawOdds = document.getElementById('oddsVal').value;
-  var odds = isTotal ? 'O/U ' + rawOdds : rawOdds;
+  // Player props get the "PROP " marker and their snapshot (saved to columns L/M), same as the app.
+  var odds = _sbProp ? 'PROP ' + rawOdds : isTotal ? 'O/U ' + rawOdds : rawOdds;
   var d={
+    prop: _sbProp || null,
     date: document.getElementById('date').value,
     league: document.getElementById('league').value,
     game: t1+' vs '+t2,
@@ -281,6 +341,7 @@ function addGame(){
       document.getElementById('gameSelect').selectedIndex=0;
       document.getElementById('mkt-picker').style.display='none';
       document.getElementById('gload').innerHTML='';
+      _sbProp=null; document.getElementById('prop-box').innerHTML=''; setOddsLabels(false);
     })
     .withFailureHandler(function(e){showSt('add-st','Error: '+e,false);})
     .addGame(d);

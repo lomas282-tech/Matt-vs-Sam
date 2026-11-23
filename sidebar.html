@@ -198,18 +198,18 @@ function onGamePicked() {
   // Player props: same server call as the phone app (leagues with priced props only).
   if(PROP_LEAGUES.indexOf(document.getElementById('league').value)>=0){
     html+='<div class="market-btn" id="mbtn-props" onclick="loadPropsSb('+idx+')"><div class="mkt-name">Player Props</div>'+
-          '<div class="mkt-odds">Up to 10 player bets, most popular first, 45–55% only</div></div>';
+          '<div class="mkt-odds">Up to 10 player bets, most popular first, close to 50/50 only</div></div>';
   }
   // Game bets: segment bets (halves/periods/first 5) and team totals, 45-55% only.
   var cat=GAME_BET_CATS[document.getElementById('league').value];
   if(cat){
     html+='<div class="market-btn" id="mbtn-periods" onclick="loadGameBetsSb('+idx+',\'periods\')"><div class="mkt-name">'+cat+'</div>'+
-          '<div class="mkt-odds">Bets on part of the game, 45–55% only</div></div>';
+          '<div class="mkt-odds">Bets on part of the game, close to 50/50 only</div></div>';
     html+='<div class="market-btn" id="mbtn-team" onclick="loadGameBetsSb('+idx+',\'team\')"><div class="mkt-name">Team Totals</div>'+
-          '<div class="mkt-odds">One team\'s points/goals/runs over/under, 45–55% only</div></div>';
+          '<div class="mkt-odds">One team\'s points/goals/runs over/under, close to 50/50 only</div></div>';
   }
   if(!opts.length&&g.noCloseLine){
-    html='<div class="info-box">No close line: spread, moneyline and total are all outside 45–55%.</div>'+html;
+    html='<div class="info-box">No close line: spread, moneyline and total are all lopsided.</div>'+html;
   }
   _sbProp=null; document.getElementById('prop-box').innerHTML='';
   document.getElementById('mkt-options').innerHTML=html;
@@ -261,7 +261,6 @@ var PROP_LEAGUES=['NBA','NHL','NFL','NCAA F','MLB'];
 var GAME_BET_CATS={NBA:'Halves & Quarters',NHL:'Periods',MLB:'First 5 Innings'};
 var _sbProps=[], _sbProp=null;
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function pct(p){return (p*100).toFixed(1)+'%';}
 function setOddsLabels(isProp){
   document.getElementById('oddsVal').previousElementSibling.textContent=isProp?'Over Odds':'Fav Odds';
   document.getElementById('dogOddsVal').previousElementSibling.textContent=isProp?'Under Odds':'Dog Odds';
@@ -285,8 +284,8 @@ function loadPropsSb(idx){
         return '<div class="market-btn" id="sbprop-'+i+'" onclick="selectPropSb('+i+')" style="display:block">'+
           '<div class="mkt-name">'+esc(p.player)+' <span style="font-weight:normal;color:#888">'+esc(p.team)+(p.opp?' vs '+esc(p.opp):'')+'</span></div>'+
           '<div class="mkt-odds"><b>'+esc(p.market)+' · O/U '+p.line+'</b></div>'+
-          '<div class="mkt-odds">Over '+fmt(p.overOdds)+' ('+pct(p.impliedOver)+') · Under '+fmt(p.underOdds)+' ('+pct(p.impliedUnder)+')</div>'+
-          '<div class="mkt-odds" style="color:#888">Fair Over '+pct(p.fairOver)+' · '+esc(p.book)+'</div></div>';
+          '<div class="mkt-odds">Over '+fmt(p.overOdds)+' · Under '+fmt(p.underOdds)+'</div>'+
+          '<div class="mkt-odds" style="color:#888">'+esc(p.book)+'</div></div>';
       }).join('');
     })
     .withFailureHandler(function(e){box.innerHTML='<div class="err-box">Player props unavailable: '+esc(e)+'</div>';})
@@ -319,15 +318,15 @@ function loadGameBetsSb(idx, cat){
   var render=function(r){
     if(parseInt(document.getElementById('gameSelect').value)!==idx) return;
     _sbProps=((r||{})[cat])||[];
-    if(!_sbProps.length){box.innerHTML='<div class="info-box">'+esc((r&&r.reason)||'Nothing between 45% and 55% for this game')+'</div>';return;}
+    if(!_sbProps.length){box.innerHTML='<div class="info-box">'+esc((r&&r.reason)||'Nothing close to 50/50 for this game')+'</div>';return;}
     box.innerHTML=_sbProps.map(function(p,i){
       return '<div class="market-btn" id="sbprop-'+i+'" onclick="selectGameBetSb('+i+')" style="display:block">'+
         '<div class="mkt-name">'+esc(p.player)+' <span style="font-weight:normal;color:#888">'+esc(p.market)+'</span></div>'+
         '<div class="mkt-odds"><b>'+esc(p.sideA)+' vs '+esc(p.sideB)+'</b></div>'+
         '<div class="mkt-odds">'+(p.fairKnown
-          ? esc(p.sideA)+' '+fmt(p.overOdds)+' · '+esc(p.sideB)+' '+fmt(p.underOdds)+' · fair '+pct(p.fairOver)+' / '+pct(1-p.fairOver)
-          : 'Either side 45–55% (prices '+(p.prices||[]).map(fmt).join(' / ')+')')+'</div>'+
-        '<div class="mkt-odds" style="color:#888">vig removed · '+esc(p.book)+'</div></div>';
+          ? esc(p.sideA)+' '+fmt(p.overOdds)+' · '+esc(p.sideB)+' '+fmt(p.underOdds)
+          : 'Odds '+(p.prices||[]).map(fmt).join(' / '))+'</div>'+
+        '<div class="mkt-odds" style="color:#888">'+esc(p.book)+'</div></div>';
     }).join('');
   };
   var key=league+'|'+g.homeTeam+'|'+g.awayTeam+'|'+g.commenceTime;

@@ -296,10 +296,12 @@ function loadRecent(){
         var cls=g.finalScore?'complete':'pending';
         var st=g.finalScore?('🏆 '+(g.winner||'?')+' | '+g.finalScore+(g.paidOut?' · 💵':'')):'⏳ Pending';
         var timeInfo = g.time ? ' · '+g.time+' CT' : '';
-        h+='<div class="game-item '+cls+'"><div class="gtitle">'+g.game+'</div>';
-        h+='<div class="meta">'+g.date+timeInfo+' · '+g.league+' · '+g.line+(g.odds?' ('+g.odds+')':'')+' · Fav: '+g.favorite+'</div>';
+        h+='<div class="game-item '+cls+'"><div class="gtitle">'+(g.prop||g.game)+'</div>';
+        if(g.prop) h+='<div class="meta">'+g.game+'</div>';
+        h+='<div class="meta">'+g.date+timeInfo+' · '+g.league+' · '+g.line+(g.odds?' ('+g.odds+')':'')+(g.prop?' · Over: ':' · Fav: ')+g.favorite+'</div>';
         h+='<div class="meta">'+st+'</div>';
-        h+='<button class="btn-blue btn-sm" style="margin-top:5px" onclick=\'openEdit('+JSON.stringify(g).replace(/\'/g,"\\'")+')\'>'+
+        // &#39; (not \') so names like Ja'Marr don't end the onclick attribute early.
+        h+='<button class="btn-blue btn-sm" style="margin-top:5px" onclick=\'openEdit('+JSON.stringify(g).replace(/\'/g,"&#39;")+')\'>'+
           (g.finalScore?'Edit':'✏️ Enter Result')+'</button></div>';
       });
       document.getElementById('glist').innerHTML=h;
@@ -310,7 +312,7 @@ function loadRecent(){
 
 function openEdit(g){
   document.getElementById('epanel').style.display='block';
-  document.getElementById('etitle').textContent=g.game;
+  document.getElementById('etitle').textContent=g.prop?g.prop+' ('+g.game+')':g.game;
   var timeInfo = g.time ? ' · '+g.time+' CT' : '';
   document.getElementById('emeta').textContent=g.date+timeInfo+' · '+g.league+' · Line: '+g.line+(g.odds?' ('+g.odds+')':'')+' · '+g.favorite+' is fav';
   document.getElementById('escore').value=g.finalScore||'';
@@ -337,6 +339,8 @@ function prevWinner(){
   if(!score||!line){el.innerHTML='';return;}
   // Detect O/U bet from the edit meta (odds field contains "O/U")
   var meta=document.getElementById('emeta').textContent||'';
+  // Player props are graded from the box score; the team-score preview would pick a wrong winner.
+  if(meta.indexOf('(PROP')>=0){el.innerHTML='<div class="wp">Player prop: graded automatically from the box score. Set the winner by hand only if needed.</div>';return;}
   var isTotal=meta.indexOf('O/U')>=0;
   google.script.run
     .withSuccessHandler(function(r){

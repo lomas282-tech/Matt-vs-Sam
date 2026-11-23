@@ -516,7 +516,7 @@ const API='https://script.google.com/macros/s/AKfycbz2q5gxGcL41LSZKjMyfmA3YPXvtO
 let _allGames=[],_selectedGameIdx=-1,_selectedMktIdx=-1;
 // Player props: leagues with priced props on ESPN (verified 2026-11-23), the
 // props shown for the selected game, the one picked, and live stats by sheet row.
-const PROP_LEAGUES=['NBA','NHL','NFL'];
+const PROP_LEAGUES=['NBA','NHL','NFL','NCAA F'];
 let _props=[],_selectedProp=null,_livePropMap={};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function pct(p){return (p*100).toFixed(1)+'%';}

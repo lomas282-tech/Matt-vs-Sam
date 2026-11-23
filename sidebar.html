@@ -198,7 +198,18 @@ function onGamePicked() {
   // Player props: same server call as the phone app (leagues with priced props only).
   if(PROP_LEAGUES.indexOf(document.getElementById('league').value)>=0){
     html+='<div class="market-btn" id="mbtn-props" onclick="loadPropsSb('+idx+')"><div class="mkt-name">Player Props</div>'+
-          '<div class="mkt-odds">Up to 8 player bets, most popular first, 45–55% only</div></div>';
+          '<div class="mkt-odds">Up to 10 player bets, most popular first, 45–55% only</div></div>';
+  }
+  // Game bets: segment bets (halves/periods/first 5) and team totals, 45-55% only.
+  var cat=GAME_BET_CATS[document.getElementById('league').value];
+  if(cat){
+    html+='<div class="market-btn" id="mbtn-periods" onclick="loadGameBetsSb('+idx+',\'periods\')"><div class="mkt-name">'+cat+'</div>'+
+          '<div class="mkt-odds">Bets on part of the game, 45–55% only</div></div>';
+    html+='<div class="market-btn" id="mbtn-team" onclick="loadGameBetsSb('+idx+',\'team\')"><div class="mkt-name">Team Totals</div>'+
+          '<div class="mkt-odds">One team\'s points/goals/runs over/under, 45–55% only</div></div>';
+  }
+  if(!opts.length&&g.noCloseLine){
+    html='<div class="info-box">No close line: spread, moneyline and total are all outside 45–55%.</div>'+html;
   }
   _sbProp=null; document.getElementById('prop-box').innerHTML='';
   document.getElementById('mkt-options').innerHTML=html;
@@ -246,7 +257,8 @@ function applyOption(g, optIdx) {
 function fmt(n){return n===null||n===undefined?'':(n>0?'+'+n:''+n);}
 
 // ── Player props ─────────────────────────────────────────────────────────────
-var PROP_LEAGUES=['NBA','NHL','NFL','NCAA F'];
+var PROP_LEAGUES=['NBA','NHL','NFL','NCAA F','MLB'];
+var GAME_BET_CATS={NBA:'Halves & Quarters',NHL:'Periods',MLB:'First 5 Innings'};
 var _sbProps=[], _sbProp=null;
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function pct(p){return (p*100).toFixed(1)+'%';}
@@ -294,6 +306,54 @@ function selectPropSb(i){
   setOddsLabels(true);
 }
 
+// ── Game bets (halves / periods / first 5 innings, team totals) ──────────────
+var _sbGameBetsFor=null, _sbGameBetsData=null;
+function loadGameBetsSb(idx, cat){
+  var g=_allGames[idx]; if(!g) return;
+  var league=document.getElementById('league').value;
+  _sbProp=null; _sbProps=[];
+  document.querySelectorAll('.market-btn').forEach(function(b){b.classList.remove('selected');});
+  document.getElementById('mbtn-'+cat).classList.add('selected');
+  ['team1','team2','line','oddsVal','dogOddsVal'].forEach(function(id){document.getElementById(id).value='';});
+  var box=document.getElementById('prop-box');
+  var render=function(r){
+    if(parseInt(document.getElementById('gameSelect').value)!==idx) return;
+    _sbProps=((r||{})[cat])||[];
+    if(!_sbProps.length){box.innerHTML='<div class="info-box">'+esc((r&&r.reason)||'Nothing between 45% and 55% for this game')+'</div>';return;}
+    box.innerHTML=_sbProps.map(function(p,i){
+      return '<div class="market-btn" id="sbprop-'+i+'" onclick="selectGameBetSb('+i+')" style="display:block">'+
+        '<div class="mkt-name">'+esc(p.player)+' <span style="font-weight:normal;color:#888">'+esc(p.market)+'</span></div>'+
+        '<div class="mkt-odds"><b>'+esc(p.sideA)+' vs '+esc(p.sideB)+'</b></div>'+
+        '<div class="mkt-odds">'+(p.fairKnown
+          ? esc(p.sideA)+' '+fmt(p.overOdds)+' · '+esc(p.sideB)+' '+fmt(p.underOdds)+' · fair '+pct(p.fairOver)+' / '+pct(1-p.fairOver)
+          : 'Either side 45–55% (prices '+(p.prices||[]).map(fmt).join(' / ')+')')+'</div>'+
+        '<div class="mkt-odds" style="color:#888">vig removed · '+esc(p.book)+'</div></div>';
+    }).join('');
+  };
+  var key=league+'|'+g.homeTeam+'|'+g.awayTeam+'|'+g.commenceTime;
+  if(_sbGameBetsFor===key){render(_sbGameBetsData);return;}
+  box.innerHTML='<div class="spinner">Finding balanced bets...</div>';
+  google.script.run
+    .withSuccessHandler(function(r){_sbGameBetsFor=key;_sbGameBetsData=r;render(r);})
+    .withFailureHandler(function(e){box.innerHTML='<div class="err-box">Game bets unavailable: '+esc(e)+'</div>';})
+    .getGameBets(league, g.homeTeam, g.awayTeam, g.commenceTime);
+}
+function selectGameBetSb(i){
+  var p=_sbProps[i], g=_allGames[parseInt(document.getElementById('gameSelect').value)];
+  if(!p||!g) return;
+  _sbProp=p;
+  document.querySelectorAll('#prop-box .market-btn').forEach(function(b){b.classList.remove('selected');});
+  document.getElementById('sbprop-'+i).classList.add('selected');
+  document.getElementById('team1').value=g.sheetAway; document.getElementById('team2').value=g.sheetHome;
+  document.getElementById('line').value=p.line;
+  document.getElementById('oddsVal').value=fmt(p.overOdds); document.getElementById('dogOddsVal').value=fmt(p.underOdds);
+  if(g.gameDate) document.getElementById('date').value=g.gameDate;
+  setOddsLabels(true);
+  document.getElementById('oddsVal').previousElementSibling.textContent=p.sideA+' odds';
+  document.getElementById('dogOddsVal').previousElementSibling.textContent=p.sideB+' odds';
+  document.getElementById('favorite').previousElementSibling.textContent=p.sideA+' picks';
+}
+
 function addGame(){
   var t1=document.getElementById('team1').value.trim(),t2=document.getElementById('team2').value.trim();
   if(!t1||!t2){showSt('add-st','Enter both team names.',false);return;}
@@ -312,7 +372,8 @@ function addGame(){
   // For O/U bets, prefix odds with "O/U " so sheet and app can identify the bet type
   var rawOdds = document.getElementById('oddsVal').value;
   // Player props get the "PROP " marker and their snapshot (saved to columns L/M), same as the app.
-  var odds = _sbProp ? 'PROP ' + rawOdds : isTotal ? 'O/U ' + rawOdds : rawOdds;
+  // Game bets (halves/periods/team totals) get "GAME " instead.
+  var odds = _sbProp ? (_sbProp.kind==='game'?'GAME ':'PROP ') + rawOdds : isTotal ? 'O/U ' + rawOdds : rawOdds;
   var d={
     prop: _sbProp || null,
     date: document.getElementById('date').value,
@@ -359,7 +420,7 @@ function loadRecent(){
         var timeInfo = g.time ? ' · '+g.time+' CT' : '';
         h+='<div class="game-item '+cls+'"><div class="gtitle">'+(g.prop||g.game)+'</div>';
         if(g.prop) h+='<div class="meta">'+g.game+'</div>';
-        h+='<div class="meta">'+g.date+timeInfo+' · '+g.league+' · '+g.line+(g.odds?' ('+g.odds+')':'')+(g.prop?' · Over: ':' · Fav: ')+g.favorite+'</div>';
+        h+='<div class="meta">'+g.date+timeInfo+' · '+g.league+' · '+g.line+(g.odds?' ('+g.odds+')':'')+(g.prop?' · '+esc((g.propMeta&&g.propMeta.sideA)||'Over')+': ':' · Fav: ')+g.favorite+'</div>';
         h+='<div class="meta">'+st+'</div>';
         // &#39; (not \') so names like Ja'Marr don't end the onclick attribute early.
         h+='<button class="btn-blue btn-sm" style="margin-top:5px" onclick=\'openEdit('+JSON.stringify(g).replace(/\'/g,"&#39;")+')\'>'+
@@ -401,6 +462,7 @@ function prevWinner(){
   // Detect O/U bet from the edit meta (odds field contains "O/U")
   var meta=document.getElementById('emeta').textContent||'';
   // Player props are graded from the box score; the team-score preview would pick a wrong winner.
+  if(meta.indexOf('(GAME')>=0){el.innerHTML='<div class="wp">Game bet: graded automatically from ESPN period scores. Set the winner by hand only if needed.</div>';return;}
   if(meta.indexOf('(PROP')>=0){el.innerHTML='<div class="wp">Player prop: graded automatically from the box score. Set the winner by hand only if needed.</div>';return;}
   var isTotal=meta.indexOf('O/U')>=0;
   google.script.run

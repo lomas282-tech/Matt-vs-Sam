@@ -198,7 +198,7 @@ function onGamePicked() {
   // Player props: same server call as the phone app (leagues with priced props only).
   if(PROP_LEAGUES.indexOf(document.getElementById('league').value)>=0){
     html+='<div class="market-btn" id="mbtn-props" onclick="loadPropsSb('+idx+')"><div class="mkt-name">Player Props</div>'+
-          '<div class="mkt-odds">Up to 5 player bets, 45–55% only</div></div>';
+          '<div class="mkt-odds">Up to 8 player bets, most popular first, 45–55% only</div></div>';
   }
   _sbProp=null; document.getElementById('prop-box').innerHTML='';
   document.getElementById('mkt-options').innerHTML=html;
@@ -246,7 +246,7 @@ function applyOption(g, optIdx) {
 function fmt(n){return n===null||n===undefined?'':(n>0?'+'+n:''+n);}
 
 // ── Player props ─────────────────────────────────────────────────────────────
-var PROP_LEAGUES=['NBA','NHL','NFL'];
+var PROP_LEAGUES=['NBA','NHL','NFL','NCAA F'];
 var _sbProps=[], _sbProp=null;
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function pct(p){return (p*100).toFixed(1)+'%';}

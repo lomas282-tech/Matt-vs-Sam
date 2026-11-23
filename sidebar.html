@@ -271,6 +271,7 @@ function addGame(){
         showSt('add-st','⚠️ Duplicate: '+r.reason+' (row '+r.row+')',false);
         return;
       }
+      if(r&&r.locked){showSt('add-st','🔒 '+r.error,false);return;}
       showSt('add-st','✅ Added row '+r.row+'!',true);
       document.getElementById('team1').value='';
       document.getElementById('team2').value='';

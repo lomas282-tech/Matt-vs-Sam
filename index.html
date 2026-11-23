@@ -518,7 +518,7 @@ let _allGames=[],_selectedGameIdx=-1,_selectedMktIdx=-1;
 // props shown for the selected game, the one picked, and live stats by sheet row.
 const PROP_LEAGUES=['NBA','NHL','NFL','NCAA F','MLB'];
 // Game bets (free, ESPN/DraftKings): segment bets + team totals, 45-55% only.
-const GAME_BET_CATS={NBA:'Halves & Quarters',NHL:'Periods',MLB:'First 5 Innings'};
+const GAME_BET_CATS={NBA:'Halves & Quarters',NHL:'Periods',MLB:'First 5 Innings',NFL:'Halves & Quarters'};
 const isSpecialOdds=o=>/^(PROP|GAME)/.test((o||'').toString());
 let _props=[],_selectedProp=null,_livePropMap={};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}

@@ -8,6 +8,8 @@ var ODDS_CACHE_SHEET = 'OddsCache';   // hidden tab: league | json | fetchedAt(m
 var ODDS_TTL_MS = 30 * 60 * 1000;     // 30 min: odds come free from ESPN, so refresh often (new lines show up)
 var ODDS_FAIL_TTL_MS = 60 * 1000;     // 60s: negative-cache window after a failed pull
 var PICK_GRACE_MS = 15 * 60 * 1000;   // picks stay open this long after start (delays), then lock
+var CLOSE_LINE_LEAGUES = ['NHL', 'MLB']; // game lines filtered to near 50/50
+var GAME_LINE_BAND = [0.45, 0.55];       // no-vig chance a game line must fall in (NHL/MLB)
 // ────────────────────────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -515,11 +517,23 @@ function fetchGamesForLeague_(league) {
           });
         }
       }
-      if (!options.length) continue;
+      // NHL / MLB: moneylines and ±1.5 puck/run lines are often lopsided, so only offer
+      // lines whose no-vig chance is 45-55%. A game with none left is still listed as
+      // "No close line" (player props / periods / team totals may still be available).
+      var noCloseLine = false;
+      if (CLOSE_LINE_LEAGUES.indexOf(league) >= 0 && options.length) {
+        options = options.filter(function(o) {
+          if (o.favOdds == null || o.dogOdds == null) return false;
+          var pf = impliedProb_(o.favOdds), pd = impliedProb_(o.dogOdds), f = pf / (pf + pd);
+          return f >= GAME_LINE_BAND[0] && f <= GAME_LINE_BAND[1];
+        });
+        noCloseLine = !options.length;
+      }
+      if (!options.length && !noCloseLine) continue;
 
       // Sort by "closest to 50/50" (lowest score = closest to -110 on both sides)
       options.sort(function(a, b) { return a.score - b.score; });
-      var best = options[0] || {};
+      var best = options[0] || { label: 'No close line' };
 
       games.push({
         homeTeam: g.home_team, awayTeam: g.away_team,
@@ -528,7 +542,7 @@ function fetchGamesForLeague_(league) {
         isSoccer: isSoccer,
         label: localDateTime + ' — ' + g.away_team + ' @ ' + g.home_team + ' — ' + (best.label || ''),
         displayDate: localDateTime,
-        startingSoon: startingSoon,
+        startingSoon: startingSoon, noCloseLine: noCloseLine,
         options: options, bestType: best.type,
         favorite: best.favorite, line: best.line,
         oddsStr: best.oddsStr, marketType: best.type,
@@ -705,7 +719,10 @@ function propSnapshot_(p) {
   return { player: p.player, team: p.team, opp: p.opp, market: p.market, stat: p.stat, line: p.line,
            overOdds: p.overOdds, underOdds: p.underOdds, impliedOver: p.impliedOver, impliedUnder: p.impliedUnder,
            fairOver: p.fairOver, book: p.book, updated: p.updated, athleteId: p.athleteId,
-           eventId: p.eventId, sport: p.sport, espnLeague: p.espnLeague, savedAt: new Date().toISOString() };
+           eventId: p.eventId, sport: p.sport, espnLeague: p.espnLeague, savedAt: new Date().toISOString(),
+           // Game bets (halves/periods/team totals) only:
+           kind: p.kind, betType: p.betType, sideA: p.sideA, sideB: p.sideB, sideHome: p.sideHome,
+           periods: p.periods, segment: p.segment };
 }
 
 function updateGame(d) {
@@ -877,8 +894,8 @@ function autoUpdateScores() {
       dateStr = r[0] ? Utilities.formatDate(new Date(r[0]), 'America/Chicago', 'yyyyMMdd') : '';
     }
 
-    // Player props are graded from the ESPN box score of the game saved with the pick.
-    if ((r[4]||'').toString().indexOf('PROP') === 0) {
+    // Player props and game bets are graded from the ESPN summary of the game saved with the pick.
+    if (/^(PROP|GAME)/.test((r[4]||'').toString())) {
       var g = gradePropRow_(parsePropMeta_(r[12]), parseFloat(r[3]), r[5], summaries);
       if (g && g.error) errors.push('Row ' + (i+2) + ': ' + g.error);
       else if (g) { sheet.getRange(i+2,7,1,3).setValues([[g.scoreStr, g.winner, g.amt]]); updated++; }
@@ -1128,8 +1145,8 @@ function getLiveScores() {
 // Verified 2026-11-23: NBA and NHL have priced props; NFL lines have no prices;
 // NCAA F / NCAA MBB have none.
 var PROP_BAND = [0.45, 0.55];        // fair (no-vig) Over probability allowed
-var PROP_MAX = 8;                    // props shown per game
-var PROP_PER_MARKET = 3;             // max props of the same stat type (e.g. Points) per game
+var PROP_MAX = 10;                   // props shown per game
+var PROP_PER_MARKET = 4;             // max per stat type (4 so NHL, with 3 stat types, can still reach 10)
 var PROP_CACHE_SEC = 20 * 60;        // cache distilled props per game for 20 min
 var ESPN_PROVIDER_DK = 100;
 var PROP_MARKETS = {
@@ -1148,7 +1165,18 @@ var PROP_MARKETS = {
     // ESPN hockey: S = shotsTotal (shots on goal; matches team totals). SOG is shootoutGoals: never use it.
     { type: 'Total Shots on Goal', ms: 'Shots on Goal Milestones', label: 'Shots on Goal', stat: [['S', 'shotsTotal']] },
     { type: 'Total Points', ms: 'Points Milestones', label: 'Points', stat: [['G', 'goals'], ['A', 'assists']] },
-    { type: 'Total Assists', ms: 'Assists Milestones', label: 'Assists', stat: [['A', 'assists']] }
+    { type: 'Total Assists', ms: 'Assists Milestones', label: 'Assists', stat: [['A', 'assists']] },
+    // Goalies box score: SV = saves (shootout saves are a separate SOS column).
+    { type: 'Total Saves', ms: 'Goalkeeper Saves Milestones', label: 'Goalie Saves', stat: [['SV', 'saves']] }
+  ]},
+  // MLB (checked on a 2026 postseason game): batting and pitching are separate box-score
+  // sections, both with H and K columns, so stats are section-qualified. Total bases is
+  // not gradeable (no 2B/3B columns); hits allowed / earned runs didn't pair cleanly.
+  'MLB': { sport: 'baseball', league: 'mlb', markets: [
+    { type: 'Total Strikeouts', ms: 'Strikeouts Thrown Milestones', label: 'Pitcher Strikeouts', stat: [['pitching.K', 'pitching.strikeouts']] },
+    { type: 'Total Hits', ms: 'Hits Milestones', label: 'Hits', stat: [['batting.H', 'batting.hits']] },
+    { type: 'Total Hits + Runs + RBIs', ms: 'Hits + Runs + RBIs Milestones', label: 'Hits+Runs+RBIs',
+      stat: [['batting.H', 'batting.hits'], ['batting.R', 'batting.runs'], ['batting.RBI', 'batting.RBIs']] }
   ]},
   // NFL: ESPN/DraftKings NFL props had lines but no prices (checked 2026-11-23), so
   // prices come from Kalshi (free public market data). Each Kalshi market is
@@ -1395,7 +1423,7 @@ function findEspnEvent_(cfg, homeTeam, awayTeam, commenceTime) {
     var teams = {};
     teams[(home.team || {}).id] = (home.team || {}).abbreviation;
     teams[(away.team || {}).id] = (away.team || {}).abbreviation;
-    return { id: ev.id, teams: teams };
+    return { id: ev.id, teams: teams, homeId: String((home.team || {}).id), awayId: String((away.team || {}).id) };
   }
   return null;
 }
@@ -1568,7 +1596,8 @@ function findAthleteStat_(summary, athleteId, stat) {
       (grp.athletes || []).forEach(function(a) {
         if (byName ? normPlayer_((a.athlete || {}).displayName) !== byName
                    : String((a.athlete || {}).id) !== String(athleteId)) return;
-        entries.push({ name: grp.name || '', labels: (grp.labels || []).map(String),
+        // Section name: football uses grp.name ("passing"); baseball uses grp.type ("batting"/"pitching").
+        entries.push({ name: grp.name || grp.type || '', labels: (grp.labels || []).map(String),
                        keys: (grp.keys || grp.names || []).map(String), stats: a.stats || [],
                        dnp: !!a.didNotPlay || !(a.stats || []).length });
       });
@@ -1616,6 +1645,7 @@ function getLivePropStats(rows) {
     var sk = meta.sport + '/' + meta.espnLeague + '/' + meta.eventId;
     if (!(sk in summaries)) summaries[sk] = getEspnSummary_(meta.sport, meta.espnLeague, meta.eventId);
     var s = summaries[sk]; if (!s) return;
+    if (meta.kind === 'game') { out[r] = liveGameBet_(meta, s); return; }
     var st = summaryStatus_(s), v = findAthleteStat_(s, meta.athleteId, meta.stat);
     out[r] = { state: st.state, detail: st.detail, played: v ? v.played : null, value: v && v.played ? v.value : null };
   });
@@ -1630,6 +1660,7 @@ function gradePropRow_(meta, line, favPicker, summaries) {
   if (!(sk in summaries)) summaries[sk] = getEspnSummary_(meta.sport, meta.espnLeague, meta.eventId);
   var s = summaries[sk];
   if (!s || !summaryStatus_(s).completed) return null;
+  if (meta.kind === 'game') return gradeGameBet_(meta, line, favPicker, s);
   var v = findAthleteStat_(s, meta.athleteId, meta.stat);
   if (!v) return { error: meta.player + ' ' + meta.market + ': stat not in the ESPN box score (player may not have recorded one) - grade by hand' };
   var label = meta.player + ' ' + meta.market;
@@ -1638,6 +1669,207 @@ function gradePropRow_(meta, line, favPicker, summaries) {
   var overHit = v.value > line;
   return { scoreStr: label + ': ' + v.value + ' (' + (overHit ? 'Over' : 'Under') + ' ' + line + ')',
            winner: overHit ? favPicker : (favPicker === 'Matt' ? 'Sam' : 'Matt'), amt: BET_AMOUNT };
+}
+
+// ─── GAME BETS: halves / quarters / periods / first 5 innings + team totals ──
+// Free, from the same ESPN/DraftKings feed as player props; only 45-55% bets are shown.
+// Spread and moneyline rows name their team. Total rows don't say which side is Over, so a
+// total is offered only when its two prices are close enough that EITHER side is 45-55%
+// (the band is symmetric, so one check covers both). Graded from ESPN period scores.
+// periods: [first, last]; last null = through the end of the game (includes OT / extra innings).
+var GAME_BETS = {
+  'NBA': { segs: [
+    { name: '1st Half', periods: [1, 2], spread: '1st Half Spread', ml: '1st Half Moneyline', total: '1st Half Total' },
+    { name: '2nd Half (incl. OT)', periods: [3, null], spread: '2nd Half Spread', ml: '2nd Half Moneyline', total: '2nd Half Total' },
+    { name: '1st Quarter', periods: [1, 1], spread: '1st Quarter Spread', ml: '1st Quarter Moneyline', total: '1st Quarter Total' },
+    { name: '2nd Quarter', periods: [2, 2], spread: '2nd Quarter Spread', ml: '2nd Quarter Moneyline', total: '2nd Quarter Total' },
+    { name: '3rd Quarter', periods: [3, 3], spread: '3rd Quarter Spread', ml: '3rd Quarter Moneyline', total: '3rd Quarter Total' },
+    { name: '4th Quarter (no OT)', periods: [4, 4], spread: '4th Quarter Spread', ml: '4th Quarter Moneyline', total: '4th Quarter Total' }
+  ], team: [
+    { name: 'Team Total (incl. OT)', type: 'Team Total Points', periods: [1, null] },
+    { name: 'Team 1st Half Total', type: 'Team 1st Half Total Points', periods: [1, 2] }
+  ]},
+  // Period moneylines are 3-way (a tied period is its own outcome), so only spreads and totals.
+  'NHL': { segs: [
+    { name: '1st Period', periods: [1, 1], spread: '1st Period Spread', total: '1st Period Total Goals' },
+    { name: '2nd Period', periods: [2, 2], spread: '2nd Period Spread', total: '2nd Period Total Goals' },
+    { name: '3rd Period (no OT)', periods: [3, 3], spread: '3rd Period Spread', total: '3rd Period Total Goals' }
+  ], team: [
+    { name: 'Team Total (no OT)', type: 'Team Total Goals (Excl OT)', periods: [1, 3] }
+  ]},
+  'MLB': { segs: [
+    { name: 'First 5 Innings', periods: [1, 5], spread: '1st 5 Innings Run Line', ml: '1st 5 Innings Moneyline', total: '1st 5 Innings Total Runs' }
+  ], team: [
+    { name: 'Team Total (incl. extras)', type: 'Team Total Runs', periods: [1, null] }
+  ]}
+};
+
+function signedLine_(n) { return n > 0 ? '+' + n : String(n); }
+
+// Pure: ESPN propBets rows (no athlete) -> { periods: [...], team: [...] } of 45-55% game bets.
+// Side A is the side whoever is in column F takes: the favorite (spread/ML) or the Over (totals).
+// One bet per segment and bet type: the line closest to 50%.
+function buildGameBets_(items, cfg, ev) {
+  var tid = function(it) { return it.team && it.team.$ref ? ((it.team.$ref.match(/teams\/(\d+)/) || [])[1] || null) : null; };
+  var price = function(it) { return it.odds && it.odds.american ? Number(it.odds.american.value) : NaN; };
+  var target = function(it) { return it.current && it.current.target ? Number(it.current.target.value) : NaN; };
+  var fair2 = function(a, b) { var pa = impliedProb_(a), pb = impliedProb_(b); return pa / (pa + pb); };
+  var inBand = function(f) { return f >= PROP_BAND[0] && f <= PROP_BAND[1]; };
+  var abbr = function(id) { return ev.teams[id] || ''; };
+  var best = function(list) {
+    return list.sort(function(x, y) { return Math.abs(x.fairOver - 0.5) - Math.abs(y.fairOver - 0.5); })[0];
+  };
+  var byType = {};
+  (items || []).forEach(function(it) {
+    var n = (it.type || {}).name;
+    if (it.athlete || !n || isNaN(price(it))) return;
+    (byType[n] = byType[n] || []).push(it);
+  });
+  var make = function(seg, betType, A, B, f, x) {
+    return Object.assign({ kind: 'game', segment: seg.name, periods: seg.periods, betType: betType, player: seg.name,
+      team: '', opp: '', book: 'DraftKings', fairOver: f, updated: (A && A.lastUpdated) || '' }, x);
+  };
+  var totals = function(seg, rows, betType, extra) {   // rows: the 2-row O/U pairs for one total
+    var byLine = {}, list = [];
+    rows.forEach(function(it) { var t = target(it); if (!isNaN(t)) (byLine[t] = byLine[t] || []).push(it); });
+    Object.keys(byLine).forEach(function(t) {
+      var g = byLine[t]; if (g.length !== 2) return;
+      var f = fair2(price(g[0]), price(g[1])); if (!inBand(f)) return;
+      var line = Number(t);
+      list.push(make(seg, betType, g[0], g[1], f, Object.assign({ line: line, sideA: 'Over ' + line, sideB: 'Under ' + line,
+        overOdds: null, underOdds: null, prices: [price(g[0]), price(g[1])], fairKnown: false }, extra(line))));
+    });
+    return best(list);
+  };
+  var out = { periods: [], team: [] };
+  cfg.segs.forEach(function(seg) {
+    // Spread: one row per team, opposite signs.
+    var lines = {}, sp = [];
+    (byType[seg.spread] || []).forEach(function(it) {
+      var id = tid(it), t = target(it); if (!id || isNaN(t)) return;
+      (lines[Math.abs(t)] = lines[Math.abs(t)] || {})[id] = it;
+    });
+    Object.keys(lines).forEach(function(k) {
+      var h = lines[k][ev.homeId], a = lines[k][ev.awayId];
+      if (!h || !a || target(h) + target(a) !== 0) return;
+      var A = target(h) <= 0 ? h : a, B = A === h ? a : h;
+      var f = fair2(price(A), price(B)); if (!inBand(f)) return;
+      var la = target(A), sa = abbr(tid(A)), sb = abbr(tid(B));
+      sp.push(make(seg, 'spread', A, B, f, { market: 'Spread ' + sa + ' ' + signedLine_(la), line: la,
+        sideA: sa + ' ' + signedLine_(la), sideB: sb + ' ' + signedLine_(-la), sideHome: A === h,
+        overOdds: price(A), underOdds: price(B), impliedOver: impliedProb_(price(A)), impliedUnder: impliedProb_(price(B)), fairKnown: true }));
+    });
+    if (sp.length) out.periods.push(best(sp));
+    // Moneyline: 2-way only (a row without a team is a "tie" outcome -> skip).
+    var mr = byType[seg.ml] || [];
+    if (mr.length === 2 && mr.every(tid)) {
+      var h2 = mr.filter(function(it) { return tid(it) === ev.homeId; })[0], a2 = mr.filter(function(it) { return tid(it) === ev.awayId; })[0];
+      if (h2 && a2) {
+        var A2 = price(h2) <= price(a2) ? h2 : a2, B2 = A2 === h2 ? a2 : h2, f2 = fair2(price(A2), price(B2));
+        if (inBand(f2)) out.periods.push(make(seg, 'ml', A2, B2, f2, { market: 'Moneyline ' + abbr(tid(A2)), line: 0,
+          sideA: abbr(tid(A2)) + ' wins', sideB: abbr(tid(B2)) + ' wins', sideHome: A2 === h2,
+          overOdds: price(A2), underOdds: price(B2), impliedOver: impliedProb_(price(A2)), impliedUnder: impliedProb_(price(B2)), fairKnown: true }));
+      }
+    }
+    // Game total for the segment.
+    var tr = (byType[seg.total] || []).filter(function(it) { return !tid(it); });
+    var t1 = totals(seg, tr, 'total', function(line) { return { market: 'Total ' + line }; });
+    if (t1) out.periods.push(t1);
+  });
+  (cfg.team || []).forEach(function(tt) {
+    [ev.homeId, ev.awayId].forEach(function(id) {
+      var rows = (byType[tt.type] || []).filter(function(it) { return tid(it) === id; });
+      var b = totals(tt, rows, 'teamTotal', function(line) {
+        return { market: abbr(id) + ' Total ' + line, sideHome: id === ev.homeId,
+                 sideA: abbr(id) + ' Over ' + line, sideB: abbr(id) + ' Under ' + line };
+      });
+      if (b) out.team.push(b);
+    });
+  });
+  return out;
+}
+
+function getGameBets(league, homeTeam, awayTeam, commenceTime) {
+  var cfg = GAME_BETS[league], pcfg = PROP_MARKETS[league];
+  if (!cfg || !pcfg) return { periods: [], team: [], reason: 'Not available for ' + league };
+  if (!isPickOpen_(commenceTime)) return { periods: [], team: [], reason: 'Picks are locked for this game' };
+  var cache = CacheService.getScriptCache();
+  var key = 'gamebets_v1_' + Utilities.base64EncodeWebSafe(league + '|' + homeTeam + '|' + awayTeam + '|' + commenceTime);
+  var hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  try {
+    var ev = findEspnEvent_(pcfg, homeTeam, awayTeam, commenceTime);
+    if (!ev) return { periods: [], team: [], reason: 'Could not find this game on ESPN' };
+    var rows = fetchPropRows_(pcfg, ev.id);
+    var b = buildGameBets_(rows, cfg, ev);
+    b.periods.concat(b.team).forEach(function(p) { p.eventId = ev.id; p.sport = pcfg.sport; p.espnLeague = pcfg.league; });
+    var any = rows.some(function(it) { return !it.athlete && it.odds && it.odds.american; });
+    b.reason = !any ? 'Game bets not posted for this game yet' : 'None between 45% and 55% for this game';
+    b.fetchedAt = new Date().toISOString();
+    try { cache.put(key, JSON.stringify(b), PROP_CACHE_SEC); } catch (e) {}
+    return b;
+  } catch (e) {
+    return { periods: [], team: [], reason: 'Game bets unavailable right now' };
+  }
+}
+
+// Points for one team over periods [first, last] from ESPN linescores (last null = to the end).
+function segPoints_(competitor, periods) {
+  var ls = (competitor || {}).linescores || [], s = 0;
+  var end = periods[1] == null ? ls.length : Math.min(periods[1], ls.length);
+  for (var i = periods[0] - 1; i < end; i++) {
+    s += Number(ls[i].displayValue != null ? ls[i].displayValue : ls[i].value) || 0;
+  }
+  return s;
+}
+
+// Side A / side B segment scores from an ESPN summary, or null if the segment isn't in the data.
+function gameBetScores_(meta, summary) {
+  var comps = ((((summary || {}).header || {}).competitions || [])[0] || {}).competitors || [];
+  var home = comps.filter(function(c) { return c.homeAway === 'home'; })[0];
+  var away = comps.filter(function(c) { return c.homeAway === 'away'; })[0];
+  if (!home || !away) return null;
+  var A = meta.sideHome ? home : away, B = meta.sideHome ? away : home;
+  return { a: segPoints_(A, meta.periods), b: segPoints_(B, meta.periods),
+           aAbbr: (A.team || {}).abbreviation || '', bAbbr: (B.team || {}).abbreviation || '',
+           played: Math.min(((A.linescores || []).length), ((B.linescores || []).length)) };
+}
+
+// Pure: 'A' | 'B' | 'push'. Side A = favorite (spread/ML) or Over (totals).
+function gameBetOutcome_(meta, line, sc) {
+  var d = meta.betType === 'spread' ? sc.a + line - sc.b
+        : meta.betType === 'ml' ? sc.a - sc.b
+        : meta.betType === 'total' ? sc.a + sc.b - line
+        : sc.a - line;   // teamTotal: side A's team
+  return d > 0 ? 'A' : d < 0 ? 'B' : 'push';
+}
+
+function gameBetScoreText_(meta, sc) {
+  return meta.betType === 'total' ? 'total ' + (sc.a + sc.b) + ' (' + sc.aAbbr + ' ' + sc.a + '-' + sc.b + ' ' + sc.bAbbr + ')'
+       : meta.betType === 'teamTotal' ? sc.aAbbr + ' ' + sc.a
+       : sc.aAbbr + ' ' + sc.a + '-' + sc.b + ' ' + sc.bAbbr;
+}
+
+function gradeGameBet_(meta, line, favPicker, summary) {
+  var sc = gameBetScores_(meta, summary);
+  var label = meta.segment + ' ' + (meta.market || '');
+  if (!sc || (meta.periods[1] != null && sc.played < meta.periods[1])) {
+    return { error: label + ': period scores missing from ESPN (game shortened?) - grade by hand' };
+  }
+  if (isNaN(line)) line = Number(meta.line);
+  var o = gameBetOutcome_(meta, line, sc);
+  var scoreStr = label + ': ' + gameBetScoreText_(meta, sc) + ' -> ' + (o === 'push' ? 'push' : o === 'A' ? meta.sideA : meta.sideB);
+  if (o === 'push') return { scoreStr: scoreStr, winner: 'Split', amt: 0 };
+  return { scoreStr: scoreStr, winner: o === 'A' ? favPicker : (favPicker === 'Matt' ? 'Sam' : 'Matt'), amt: BET_AMOUNT };
+}
+
+// Live card data for a game bet: who is covering right now.
+function liveGameBet_(meta, summary) {
+  var st = summaryStatus_(summary), sc = gameBetScores_(meta, summary);
+  if (!sc) return { state: st.state, detail: st.detail };
+  var o = gameBetOutcome_(meta, Number(meta.line), sc);
+  return { state: st.state, detail: st.detail, coverA: o === 'push' ? null : o === 'A',
+           text: meta.segment + ': ' + gameBetScoreText_(meta, sc) };
 }
 
 function buildSummary() {
@@ -1800,6 +2032,7 @@ function doGet(e) {
   else if (action==='getTeamLogos') result=getTeamLogos(e.parameter.league);
   else if (action==='getPlayerProps') result=getPlayerProps(e.parameter.league, e.parameter.home, e.parameter.away, e.parameter.commenceTime);
   else if (action==='getLivePropStats') result=getLivePropStats(e.parameter.rows);
+  else if (action==='getGameBets') result=getGameBets(e.parameter.league, e.parameter.home, e.parameter.away, e.parameter.commenceTime);
   else result={error:'Unknown action'};
   return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }

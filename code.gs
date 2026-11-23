@@ -1353,24 +1353,33 @@ function kalshiTeam_(seg, kalshiCodes, espnAbbrs) {
   return espnAbbrs.filter(function(a) { return kalshiCodes.indexOf(a) < 0; })[0] || code;
 }
 
-function getKalshiProps_(cfg, ev, homeTeam, awayTeam, commenceTime) {
+function kalshiParse_(r) { try { return JSON.parse(r.getContentText()); } catch (e) { return {}; } }
+
+// The open Kalshi event for this game in each series (event ticker has the game date, e.g.
+// "-26NOV23CINWAS", and the title names both teams). Returns { series: event }.
+function kalshiEventsFor_(series, homeTeam, awayTeam, commenceTime) {
   var dateCode = '-' + Utilities.formatDate(new Date(commenceTime), 'America/New_York', 'yyMMMdd').toUpperCase();
-  var all = [];
-  cfg.markets.forEach(function(mk) { mk.series.forEach(function(s) { all.push(s); }); });
-  var parse = function(r) { try { return JSON.parse(r.getContentText()); } catch (e) { return {}; } };
-  var evResps = UrlFetchApp.fetchAll(all.map(function(s) {
+  var resps = UrlFetchApp.fetchAll(series.map(function(s) {
     return { url: KALSHI_API + '/events?series_ticker=' + s + '&status=open&limit=100', muteHttpExceptions: true };
   }));
   var eventFor = {};
-  evResps.forEach(function(r, i) {
-    (parse(r).events || []).forEach(function(e) {
-      if (eventFor[all[i]] || String(e.event_ticker).indexOf(dateCode) < 0) return;
+  resps.forEach(function(r, i) {
+    (kalshiParse_(r).events || []).forEach(function(e) {
+      if (eventFor[series[i]] || String(e.event_ticker).indexOf(dateCode) < 0) return;
       var t = String(e.title || '').split(':')[0].split(' vs ');
       if (t.length !== 2) return;
       if ((teamsMatch(t[0], awayTeam) && teamsMatch(t[1], homeTeam)) ||
-          (teamsMatch(t[0], homeTeam) && teamsMatch(t[1], awayTeam))) eventFor[all[i]] = e;
+          (teamsMatch(t[0], homeTeam) && teamsMatch(t[1], awayTeam))) eventFor[series[i]] = e;
     });
   });
+  return eventFor;
+}
+
+function getKalshiProps_(cfg, ev, homeTeam, awayTeam, commenceTime) {
+  var all = [];
+  cfg.markets.forEach(function(mk) { mk.series.forEach(function(s) { all.push(s); }); });
+  var parse = kalshiParse_;
+  var eventFor = kalshiEventsFor_(all, homeTeam, awayTeam, commenceTime);
   var chosen = [];
   cfg.markets.forEach(function(mk) {
     var s = mk.series.filter(function(x) { return eventFor[x]; })[0];
@@ -1701,8 +1710,90 @@ var GAME_BETS = {
     { name: 'First 5 Innings', periods: [1, 5], spread: '1st 5 Innings Run Line', ml: '1st 5 Innings Moneyline', total: '1st 5 Innings Total Runs' }
   ], team: [
     { name: 'Team Total (incl. extras)', type: 'Team Total Runs', periods: [1, null] }
+  ]},
+  // NFL: ESPN lists these lines with no prices (checked 2026-11-23), so they come from Kalshi
+  // (free). Values are Kalshi series of yes/no contracts: totals "Over X points", spreads
+  // "Cincinnati wins by over X points", team totals "Cincinnati over X points". Kalshi rules
+  // (checked 2026-11-23): 2nd half includes OT, 4th quarter excludes OT, team total = full game.
+  // Half/quarter winner series had no open games, so there are no NFL segment moneylines.
+  'NFL': { source: 'kalshi', segs: [
+    { name: '1st Half', periods: [1, 2], spread: 'KXNFL1HSPREAD', total: 'KXNFL1HTOTAL' },
+    { name: '2nd Half (incl. OT)', periods: [3, null], spread: 'KXNFL2HSPREAD', total: 'KXNFL2HTOTAL' },
+    { name: '1st Quarter', periods: [1, 1], spread: 'KXNFL1QSPREAD', total: 'KXNFL1QTOTAL' },
+    { name: '2nd Quarter', periods: [2, 2], spread: 'KXNFL2QSPREAD', total: 'KXNFL2QTOTAL' },
+    { name: '3rd Quarter', periods: [3, 3], spread: 'KXNFL3QSPREAD', total: 'KXNFL3QTOTAL' },
+    { name: '4th Quarter (no OT)', periods: [4, 4], spread: 'KXNFL4QSPREAD', total: 'KXNFL4QTOTAL' }
+  ], team: [
+    { name: 'Team Total (incl. OT)', series: 'KXNFLTEAMTOTAL', periods: [1, null] },
+    { name: 'Team 1st Half Total', series: 'KXNFL1HTEAMTOTAL', periods: [1, 2] }
   ]}
 };
+
+// Pure: the Kalshi "over X" contract closest to 50% among those that are 45-55% (mid price),
+// on a .5 line, with a tight bid/ask. Over = buy Yes at the ask; Under = buy No at (1 - bid).
+function kalshiOverPick_(markets, keep) {
+  var best = null;
+  (markets || []).forEach(function(m) {
+    if ((m.status && m.status !== 'active') || (m.strike_type && m.strike_type !== 'greater')) return;
+    if (keep && !keep(m)) return;
+    var line = Number(m.floor_strike);
+    if (isNaN(line) || line % 1 !== 0.5) return;
+    var bid = parseFloat(m.yes_bid_dollars), ask = parseFloat(m.yes_ask_dollars);
+    if (!(bid > 0 && ask < 1 && ask >= bid) || ask - bid > KALSHI_MAX_SPREAD) return;
+    var mid = (bid + ask) / 2;
+    if (mid < PROP_BAND[0] || mid > PROP_BAND[1]) return;
+    if (!best || Math.abs(mid - 0.5) < Math.abs(best.mid - 0.5)) {
+      best = { line: line, bid: bid, ask: ask, mid: mid, updated: m.updated_time || '' };
+    }
+  });
+  return best;
+}
+
+// Pure: Kalshi markets for one game (keyed by series) -> { periods, team } game bets.
+// Team-total markets read "Cincinnati over 14.5 points"; Kalshi's team name is a prefix of
+// ESPN's ("Los Angeles R" -> "Los Angeles Rams"), which also keeps NYG/NYJ apart.
+function buildKalshiGameBets_(cfg, bySeries, ev, homeTeam, awayTeam) {
+  var out = { periods: [], team: [] };
+  var bet = function(seg, betType, p, x) {
+    return Object.assign({ kind: 'game', segment: seg.name, periods: seg.periods, betType: betType, player: seg.name,
+      team: '', opp: '', book: 'Kalshi', line: p.line, fairOver: p.mid, fairKnown: true,
+      overOdds: probToAmerican_(p.ask), underOdds: probToAmerican_(1 - p.bid),
+      impliedOver: p.ask, impliedUnder: 1 - p.bid, updated: p.updated }, x);
+  };
+  var norm = function(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); };
+  var isTeam = function(m, splitRe, team) {
+    var who = norm(String(m.yes_sub_title || '').split(splitRe)[0]);
+    return who && norm(team).indexOf(who) === 0;
+  };
+  var sides = [[homeTeam, ev.homeId, true], [awayTeam, ev.awayId, false]];
+  cfg.segs.forEach(function(seg) {
+    // Spread: each team has its own "wins by over X" ladder. Yes = that team -X (side A),
+    // No = the other team +X. Keep the single contract closest to 50% across both ladders.
+    if (seg.spread) {
+      var best = null;
+      sides.forEach(function(t) {
+        var p = kalshiOverPick_(bySeries[seg.spread], function(m) { return isTeam(m, / wins by over /i, t[0]); });
+        if (p && (!best || Math.abs(p.mid - 0.5) < Math.abs(best.p.mid - 0.5))) best = { p: p, t: t };
+      });
+      if (best) {
+        var a = ev.teams[best.t[1]] || '', b = ev.teams[(best.t[2] ? ev.awayId : ev.homeId)] || '';
+        out.periods.push(bet(seg, 'spread', best.p, { line: -best.p.line, market: 'Spread ' + a + ' -' + best.p.line,
+          sideHome: best.t[2], sideA: a + ' -' + best.p.line, sideB: b + ' +' + best.p.line }));
+      }
+    }
+    var p = seg.total && kalshiOverPick_(bySeries[seg.total]);
+    if (p) out.periods.push(bet(seg, 'total', p, { market: 'Total ' + p.line, sideA: 'Over ' + p.line, sideB: 'Under ' + p.line }));
+  });
+  (cfg.team || []).forEach(function(tt) {
+    sides.forEach(function(t) {
+      var ab = ev.teams[t[1]] || '';
+      var p = kalshiOverPick_(bySeries[tt.series], function(m) { return isTeam(m, / over /i, t[0]); });
+      if (p) out.team.push(bet(tt, 'teamTotal', p, { market: ab + ' Total ' + p.line, sideHome: t[2],
+        sideA: ab + ' Over ' + p.line, sideB: ab + ' Under ' + p.line }));
+    });
+  });
+  return out;
+}
 
 function signedLine_(n) { return n > 0 ? '+' + n : String(n); }
 
@@ -1800,10 +1891,26 @@ function getGameBets(league, homeTeam, awayTeam, commenceTime) {
   try {
     var ev = findEspnEvent_(pcfg, homeTeam, awayTeam, commenceTime);
     if (!ev) return { periods: [], team: [], reason: 'Could not find this game on ESPN' };
-    var rows = fetchPropRows_(pcfg, ev.id);
-    var b = buildGameBets_(rows, cfg, ev);
+    var b, any;
+    if (cfg.source === 'kalshi') {
+      var series = [];
+      cfg.segs.forEach(function(s) { ['spread', 'ml', 'total'].forEach(function(k) { if (s[k]) series.push(s[k]); }); });
+      (cfg.team || []).forEach(function(t) { series.push(t.series); });
+      var evFor = kalshiEventsFor_(series, homeTeam, awayTeam, commenceTime);
+      var chosen = series.filter(function(s) { return evFor[s]; });
+      var resps = chosen.length ? UrlFetchApp.fetchAll(chosen.map(function(s) {
+        return { url: KALSHI_API + '/markets?event_ticker=' + evFor[s].event_ticker + '&limit=1000', muteHttpExceptions: true };
+      })) : [];
+      var bySeries = {};
+      chosen.forEach(function(s, i) { bySeries[s] = kalshiParse_(resps[i]).markets || []; });
+      b = buildKalshiGameBets_(cfg, bySeries, ev, homeTeam, awayTeam);
+      any = chosen.length > 0;
+    } else {
+      var rows = fetchPropRows_(pcfg, ev.id);
+      b = buildGameBets_(rows, cfg, ev);
+      any = rows.some(function(it) { return !it.athlete && it.odds && it.odds.american; });
+    }
     b.periods.concat(b.team).forEach(function(p) { p.eventId = ev.id; p.sport = pcfg.sport; p.espnLeague = pcfg.league; });
-    var any = rows.some(function(it) { return !it.athlete && it.odds && it.odds.american; });
     b.reason = !any ? 'Game bets not posted for this game yet' : 'None close to 50/50 for this game';
     b.fetchedAt = new Date().toISOString();
     try { cache.put(key, JSON.stringify(b), PROP_CACHE_SEC); } catch (e) {}

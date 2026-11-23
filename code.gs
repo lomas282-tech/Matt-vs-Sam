@@ -1518,7 +1518,7 @@ function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
       kp.forEach(function(p) { p.eventId = ev.id; p.sport = cfg.sport; p.espnLeague = cfg.league; p.book = 'Kalshi'; });
       var kout = { props: kp, fetchedAt: new Date().toISOString(),
                    reason: kp.length ? '' : !k.found ? 'No Kalshi player markets for this game yet'
-                         : 'No player props between 45% and 55% for this game' };
+                         : 'No player props close to 50/50 for this game' };
       try { cache.put(key, JSON.stringify(kout), PROP_CACHE_SEC); } catch (e) {}
       return kout;
     }
@@ -1533,7 +1533,7 @@ function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
         p.eventId = ev.id; p.sport = cfg.sport; p.espnLeague = cfg.league;
       });
       var oout = { props: op, fetchedAt: new Date().toISOString(),
-                   reason: op.length ? '' : o.reason || 'No player props between 45% and 55% for this game' };
+                   reason: op.length ? '' : o.reason || 'No player props close to 50/50 for this game' };
       // Paid lookups that found props are kept 6h; empty/paused results are retried after 20 min.
       try { cache.put(key, JSON.stringify(oout), o.cands.length ? ODDS_API_PROP_CACHE_SEC : PROP_CACHE_SEC); } catch (e) {}
       return oout;
@@ -1559,7 +1559,7 @@ function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
     var out = { props: picks, fetchedAt: new Date().toISOString(),
                 reason: picks.length ? '' : !rows.length ? 'No player props posted for this game yet'
                       : !priced ? 'Player prop prices not posted for this game yet'
-                      : 'No player props between 45% and 55% for this game' };
+                      : 'No player props close to 50/50 for this game' };
     try { cache.put(key, JSON.stringify(out), PROP_CACHE_SEC); } catch (e) {}
     return out;
   } catch (e) {
@@ -1804,7 +1804,7 @@ function getGameBets(league, homeTeam, awayTeam, commenceTime) {
     var b = buildGameBets_(rows, cfg, ev);
     b.periods.concat(b.team).forEach(function(p) { p.eventId = ev.id; p.sport = pcfg.sport; p.espnLeague = pcfg.league; });
     var any = rows.some(function(it) { return !it.athlete && it.odds && it.odds.american; });
-    b.reason = !any ? 'Game bets not posted for this game yet' : 'None between 45% and 55% for this game';
+    b.reason = !any ? 'Game bets not posted for this game yet' : 'None close to 50/50 for this game';
     b.fetchedAt = new Date().toISOString();
     try { cache.put(key, JSON.stringify(b), PROP_CACHE_SEC); } catch (e) {}
     return b;

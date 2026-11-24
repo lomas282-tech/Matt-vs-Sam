@@ -620,13 +620,40 @@ function resolveScore(d) {
 // ─── DUPLICATE DETECTION FIX ─────────────────────────────────────────────────
 // Previously matched on game name + date only, which blocked series games
 // (same teams, different days or doubleheaders).
-// NEW LOGIC:
-//   1. If commenceTime is provided: match on game + commenceTime + bet identity
-//      (line + odds + favorite). Different bet types on the same game — e.g. an
-//      over and a line bet — differ in odds/line/favorite, so both are allowed.
-//   2. Fallback (manual entry): match on game + date + line + odds + favorite.
+// CURRENT LOGIC (betKey_): same game + start time (or date for manual entries) + bet
+// type + line + prop/game-bet label = duplicate, whoever took which side and even if
+// the odds moved. Different start times (series games) or bet types are allowed.
 // ─────────────────────────────────────────────────────────────────────────────
+// Pure: when a bet's game happens, for duplicate checks. Start time to the minute when known
+// (works whether the sheet cell holds text or a Date); otherwise the game date as M/d/yyyy.
+// "yyyy-mm-dd" input dates are read as calendar dates, not UTC midnight.
+function betWhen_(commence, date, tz) {
+  var t = commence ? new Date(commence).getTime() : NaN;
+  if (!isNaN(t)) return 't' + Math.round(t / 60000);
+  var m = String(date || '').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return 'd' + parseInt(m[2], 10) + '/' + parseInt(m[3], 10) + '/' + m[1];
+  return date ? 'd' + Utilities.formatDate(new Date(date), tz, 'M/d/yyyy') : '';
+}
+
+// Pure: identity of a bet for duplicate checks. Two rows are the same bet when the game
+// (either team order), start time, bet type (spread/ML, O/U, PROP, GAME), line and the
+// player-prop / game-bet label all match. Who took which side and odds moves don't matter.
+function betKey_(game, when, odds, line, propLabel) {
+  var teams = String(game || '').toLowerCase().split(' vs ').map(function(s) { return s.trim(); }).sort().join('|');
+  var type = (String(odds || '').trim().match(/^(O\/U|PROP|GAME)/i) || ['LINE'])[0].toUpperCase();
+  var ln = parseFloat(line);
+  if (isNaN(ln)) ln = 0;   // moneyline: app sends '' and the sidebar sends 0
+  return [teams, when, type, ln, String(propLabel || '').toLowerCase().trim()].join('#');
+}
+
+// One add at a time, so Matt and Sam adding the same bet at the same moment can't both get in.
 function addGame(d) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return addGame_(d); } finally { lock.releaseLock(); }
+}
+
+function addGame_(d) {
   if (d.commenceTime && !isPickOpen_(d.commenceTime)) {
     return {locked:true, error:'Picks locked: game started more than ' + (PICK_GRACE_MS/60000) + ' min ago'};
   }
@@ -635,42 +662,14 @@ function addGame(d) {
 
   if (lastRow>=2) {
     var existing=sheet.getRange(2,1,lastRow-1,12).getValues();
-    var inputProp = propLabel_(d.prop).toLowerCase();
-    var inputGame = (d.game||'').toLowerCase().trim();
-    var inputCommenceTime = (d.commenceTime||'').trim();
-    var inputLine = (d.line||'').toString().trim();
-    var inputOdds = (d.odds||'').toString().toLowerCase().trim();
-    var inputFavorite = (d.favorite||'').toString().toLowerCase().trim();
-
+    var tz = Session.getScriptTimeZone();
+    var inputKey = betKey_(d.game, betWhen_(d.commenceTime, d.date, tz), d.odds, d.line, propLabel_(d.prop));
     for (var i=0;i<existing.length;i++){
-      var eGame = (existing[i][2]||'').toString().toLowerCase().trim();
-      if (eGame !== inputGame) continue;
-
-      // A bet is uniquely identified by its line + odds + favorite. Two rows for
-      // the same game are only duplicates when all three match; an over vs a line
-      // bet differ here and are treated as distinct bets.
-      var eLine = (existing[i][3]||'').toString().trim();
-      var eOdds = (existing[i][4]||'').toString().toLowerCase().trim();
-      var eFavorite = (existing[i][5]||'').toString().toLowerCase().trim();
-      var sameBet = (eLine === inputLine && eOdds === inputOdds && eFavorite === inputFavorite &&
-                     (existing[i][11]||'').toString().toLowerCase() === inputProp);  // col L: player prop
-
-      // Strategy 1: If we have commenceTime, use it as the event key
-      if (inputCommenceTime) {
-        var eCommenceTime = (existing[i][10]||'').toString().trim();
-        if (eCommenceTime === inputCommenceTime && sameBet) {
-          return {duplicate:true, row:i+2, reason:'Same game + start time + bet already exists'};
-        }
-        // Different commence time (series game) or different bet type = allow it
-        continue;
-      }
-
-      // Strategy 2: Fallback for manual entries — match on game + date + bet
-      var inputDate = d.date ? Utilities.formatDate(new Date(d.date), Session.getScriptTimeZone(), 'M/d/yyyy') : '';
-      var eDate = existing[i][0] ? Utilities.formatDate(new Date(existing[i][0]), Session.getScriptTimeZone(), 'M/d/yyyy') : '';
-
-      if (eDate === inputDate && sameBet) {
-        return {duplicate:true, row:i+2, reason:'Same game + date + bet already exists'};
+      var r = existing[i];
+      if (!r[2]) continue;
+      var eKey = betKey_(r[2], betWhen_(r[10], r[0], tz), r[4], r[3], r[11]);
+      if (eKey === inputKey) {
+        return {duplicate:true, row:i+2, reason:'This bet is already in the sheet (' + (r[5] || '?') + ' has the first side)'};
       }
     }
   }

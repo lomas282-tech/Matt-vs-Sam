@@ -1151,14 +1151,25 @@ var ESPN_PROVIDER_DK = 100;
 var PROP_MARKETS = {
   // stat: list of components summed; each component lists acceptable box-score
   // labels/keys (first match wins). Labels are checked by testPropGrading().
-  'NBA': { sport: 'basketball', league: 'nba', markets: [
-    { type: 'Total Points', ms: 'Points Milestones', label: 'Points', stat: [['PTS', 'points']] },
-    { type: 'Total Rebounds', ms: 'Rebounds Milestones', label: 'Rebounds', stat: [['REB', 'rebounds', 'totalRebounds']] },
-    { type: 'Total Assists', ms: 'Assists Milestones', label: 'Assists', stat: [['AST', 'assists']] },
-    { type: 'Total 3-Point Field Goals', ms: '3-Point Field Goals Milestones', label: '3-Pointers',
+  // NBA: up to 20 per game, up to 3 stats per player, shown in stat groups.
+  'NBA': { sport: 'basketball', league: 'nba', max: 20, perPlayer: 3, perMarket: 5,
+           core: ['Points', 'Rebounds', 'Assists'],
+           groups: ['Points', 'Rebounds & Assists', '3-Pointers', 'Combos', 'Steals & Blocks'], markets: [
+    { type: 'Total Points', ms: 'Points Milestones', label: 'Points', group: 'Points', stat: [['PTS', 'points']] },
+    { type: 'Total Rebounds', ms: 'Rebounds Milestones', label: 'Rebounds', group: 'Rebounds & Assists', stat: [['REB', 'rebounds', 'totalRebounds']] },
+    { type: 'Total Assists', ms: 'Assists Milestones', label: 'Assists', group: 'Rebounds & Assists', stat: [['AST', 'assists']] },
+    { type: 'Total 3-Point Field Goals', ms: '3-Point Field Goals Milestones', label: '3-Pointers', group: '3-Pointers',
       stat: [['3PT', '3PM', 'threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'threePointFieldGoalsMade']] },
-    { type: 'Total Points, Rebounds, and Assists', ms: 'Points + Assists + Rebounds Milestones', label: 'Pts+Reb+Ast',
-      stat: [['PTS', 'points'], ['REB', 'rebounds', 'totalRebounds'], ['AST', 'assists']] }
+    { type: 'Total Points, Rebounds, and Assists', ms: 'Points + Assists + Rebounds Milestones', label: 'Pts+Reb+Ast', group: 'Combos',
+      stat: [['PTS', 'points'], ['REB', 'rebounds', 'totalRebounds'], ['AST', 'assists']] },
+    { type: 'Total Points and Rebounds', ms: 'Points + Rebounds Milestones', label: 'Pts+Reb', group: 'Combos',
+      stat: [['PTS', 'points'], ['REB', 'rebounds', 'totalRebounds']] },
+    { type: 'Total Points and Assists', ms: 'Points + Assists Milestones', label: 'Pts+Ast', group: 'Combos',
+      stat: [['PTS', 'points'], ['AST', 'assists']] },
+    { type: 'Total Assists and Rebounds', ms: 'Rebounds + Assists Milestones', label: 'Reb+Ast', group: 'Combos',
+      stat: [['REB', 'rebounds', 'totalRebounds'], ['AST', 'assists']] },
+    { type: 'Total Steals', ms: 'Steals Milestones', label: 'Steals', group: 'Steals & Blocks', stat: [['STL', 'steals']] },
+    { type: 'Total Blocks', ms: 'Blocks Milestones', label: 'Blocks', group: 'Steals & Blocks', stat: [['BLK', 'blocks']] }
   ]},
   'NHL': { sport: 'hockey', league: 'nhl', markets: [
     // ESPN hockey: S = shotsTotal (shots on goal; matches team totals). SOG is shootoutGoals: never use it.
@@ -1182,7 +1193,11 @@ var PROP_MARKETS = {
   // "Player: N+" = Over N-0.5. For each stat the first series with an open event
   // for the game is used. Football box scores split players into sections, each
   // with its own YDS column, so stats are "section.LABEL".
-  'NFL': { sport: 'football', league: 'nfl', source: 'kalshi', markets: [
+  // Up to 20 per game, grouped by roster position (ESPN rosters, free). Yardage props are
+  // picked first so each game leads with QB passing yards and the main rushing/receiving lines.
+  'NFL': { sport: 'football', league: 'nfl', source: 'kalshi', max: 20, perPlayer: 3, perMarket: 6,
+           core: ['Passing Yds', 'Rushing Yds', 'Receiving Yds'],
+           groups: ['Quarterbacks', 'Running Backs', 'Wide Receivers', 'Tight Ends', 'Other'], markets: [
     { series: ['KXNFLPASSYDS', 'KXNFLPASSYDSPROT'], label: 'Passing Yds', stat: [['passing.YDS', 'passing.passingYards']] },
     { series: ['KXNFLPASSTDS', 'KXNFLPASSTDSPROT'], label: 'Passing TDs', stat: [['passing.TD', 'passing.passingTouchdowns']] },
     { series: ['KXNFLRSHYDS', 'KXNFLRSHYDSPROT'], label: 'Rushing Yds', stat: [['rushing.YDS', 'rushing.rushingYards']] },
@@ -1283,7 +1298,8 @@ function getOddsApiProps_(cfg, homeTeam, awayTeam, commenceTime) {
   return { cands: cands, reason: cands.length ? '' : 'No player props posted for this game yet' };
 }
 
-// Odds API props have names but no teams: look the kept players up on the two ESPN rosters.
+// Odds API / Kalshi props have names only: look players up on the two ESPN rosters (free).
+// Returns { 'name:<normalized>': { team: 'CIN', pos: 'WR' } }.
 function rosterTeams_(cfg, ev) {
   var ids = Object.keys(ev.teams), map = {};
   var resps = UrlFetchApp.fetchAll(ids.map(function(id) {
@@ -1294,7 +1310,9 @@ function rosterTeams_(cfg, ev) {
     var j = {};
     try { j = JSON.parse(r.getContentText()); } catch (e) {}
     (j.athletes || []).forEach(function(g) {
-      (g.items || []).forEach(function(a) { map['name:' + normPlayer_(a.displayName)] = ev.teams[ids[i]]; });
+      (g.items || []).forEach(function(a) {
+        map['name:' + normPlayer_(a.displayName)] = { team: ev.teams[ids[i]], pos: (a.position || {}).abbreviation || '' };
+      });
     });
   });
   return map;
@@ -1473,16 +1491,18 @@ function buildPropCandidates_(items, markets) {
       if (g.length !== 2) return;
       var line = target(g[0]);
       if (line % 1 !== 0.5) return;                           // .5 lines only: no pushes
-      var m = miles[athId(g[0]) + '|' + (line + 0.5)];          // "N+" milestone == Over (N - 0.5)
-      if (!m) return;
-      var pm = impliedProb_(price(m));
-      var d0 = Math.abs(impliedProb_(price(g[0])) - pm), d1 = Math.abs(impliedProb_(price(g[1])) - pm);
-      var lo = Math.min(d0, d1), hi = Math.max(d0, d1);
-      if (lo > 0.03 || hi - lo < 0.02) return;                  // not a clean match: skip, never guess
-      var over = d0 < d1 ? g[0] : g[1], under = d0 < d1 ? g[1] : g[0];
+      // Over side: the "N+" milestone (== Over N - 0.5) when it clearly matches one price;
+      // otherwise ESPN's row order, which lists the Over first (107 of 107 checked pairs,
+      // NBA/NHL/MLB, 2026-11-24). The line decides grading, so order only places the prices.
+      var m = miles[athId(g[0]) + '|' + (line + 0.5)], over = g[0], under = g[1];
+      if (m) {
+        var pm = impliedProb_(price(m));
+        var d0 = Math.abs(impliedProb_(price(g[0])) - pm), d1 = Math.abs(impliedProb_(price(g[1])) - pm);
+        if (Math.min(d0, d1) <= 0.03 && Math.abs(d0 - d1) >= 0.02 && d1 < d0) { over = g[1]; under = g[0]; }
+      }
       var pO = impliedProb_(price(over)), pU = impliedProb_(price(under));
       out.push({
-        athleteId: athId(over), market: mk.label, marketType: mk.type, stat: mk.stat, line: line,
+        athleteId: athId(over), market: mk.label, marketType: mk.type, stat: mk.stat, line: line, group: mk.group,
         overOdds: price(over), underOdds: price(under),
         impliedOver: pO, impliedUnder: pU, fairOver: pO / (pO + pU),
         updated: over.lastUpdated || '', pop: pop[athId(over)] || 0
@@ -1493,20 +1513,51 @@ function buildPropCandidates_(items, markets) {
 }
 
 // Pure: keep only 45-55% fair (every pick is a fair bet), then most popular players
-// first (ties: closest to 50%), 1 per player, max PROP_PER_MARKET per stat type.
-function selectProps_(cands) {
+// first (ties: closest to 50%). One line per player + stat. Limits come from the league
+// config (cfg.max / perPlayer / perMarket), defaulting to PROP_MAX, 1 and PROP_PER_MARKET.
+// With cfg.groups each group gets one slot first; then stats in cfg.core (e.g. QB passing
+// yards); then the rest. The result is ordered by group (e.g. QB, RB, WR, TE).
+function selectProps_(cands, cfg) {
+  cfg = cfg || {};
+  var max = cfg.max || PROP_MAX, perPlayer = cfg.perPlayer || 1, perMarket = cfg.perMarket || PROP_PER_MARKET;
+  var core = cfg.core || [];
   var pool = cands.filter(function(c) { return c.fairOver >= PROP_BAND[0] && c.fairOver <= PROP_BAND[1]; })
     .sort(function(a, b) {
       return ((b.pop || 0) - (a.pop || 0)) || (Math.abs(a.fairOver - 0.5) - Math.abs(b.fairOver - 0.5));
     });
-  var out = [], byPlayer = {}, byMarket = {};
-  for (var i = 0; i < pool.length && out.length < PROP_MAX; i++) {
-    var c = pool[i];
-    if (byPlayer[c.athleteId] || (byMarket[c.market] || 0) >= PROP_PER_MARKET) continue;
-    byPlayer[c.athleteId] = 1; byMarket[c.market] = (byMarket[c.market] || 0) + 1;
+  var out = [], byPlayer = {}, byMarket = {}, seen = {};
+  var take = function(c) {
+    var pm = c.athleteId + '|' + c.market;
+    if (out.length >= max || seen[pm] || (byPlayer[c.athleteId] || 0) >= perPlayer ||
+        (byMarket[c.market] || 0) >= perMarket) return;
+    seen[pm] = 1;
+    byPlayer[c.athleteId] = (byPlayer[c.athleteId] || 0) + 1; byMarket[c.market] = (byMarket[c.market] || 0) + 1;
     out.push(c);
+  };
+  var isCore = function(c) { return core.indexOf(c.market) >= 0; };
+  // Every group gets a slot first (its most popular core stat if it has one), so e.g. tight
+  // ends aren't crowded out by receivers; then the core stats; then everything else.
+  (cfg.groups || []).forEach(function(g) {
+    var inG = pool.filter(function(c) { return c.group === g; });
+    var first = inG.filter(isCore)[0] || inG[0];
+    if (first) take(first);
+  });
+  pool.forEach(function(c) { if (isCore(c)) take(c); });
+  pool.forEach(take);
+  if (cfg.groups) {
+    var rank = function(c) { var i = cfg.groups.indexOf(c.group); return i < 0 ? cfg.groups.length : i; };
+    out = out.map(function(c, i) { return { c: c, i: i }; })
+      .sort(function(a, b) { return (rank(a.c) - rank(b.c)) || (a.i - b.i); })
+      .map(function(x) { return x.c; });
   }
   return out;
+}
+
+// Pure: NFL/college roster position -> prop group.
+function posGroup_(pos) {
+  var p = String(pos || '').toUpperCase();
+  return p === 'QB' ? 'Quarterbacks' : (p === 'RB' || p === 'FB') ? 'Running Backs' :
+         p === 'WR' ? 'Wide Receivers' : p === 'TE' ? 'Tight Ends' : 'Other';
 }
 
 function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
@@ -1514,7 +1565,7 @@ function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
   if (!cfg) return { props: [], reason: 'Player props are not available for ' + league };
   if (!isPickOpen_(commenceTime)) return { props: [], reason: 'Picks are locked for this game' };
   var cache = CacheService.getScriptCache();
-  var key = 'props_v1_' + Utilities.base64EncodeWebSafe(league + '|' + homeTeam + '|' + awayTeam + '|' + commenceTime);
+  var key = 'props_v2_' + Utilities.base64EncodeWebSafe(league + '|' + homeTeam + '|' + awayTeam + '|' + commenceTime);
   var hit = cache.get(key);
   if (hit) return JSON.parse(hit);
   try {
@@ -1522,7 +1573,10 @@ function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
     if (!ev) return { props: [], reason: 'Could not find this game on ESPN' };
     if (cfg.source === 'kalshi') {
       var k = getKalshiProps_(cfg, ev, homeTeam, awayTeam, commenceTime);
-      var kp = selectProps_(k.cands);
+      // Positions come first (they decide the groups), then the usual selection.
+      var info = (k.cands.length && cfg.groups) ? rosterTeams_(cfg, ev) : {};
+      k.cands.forEach(function(p) { if (cfg.groups) p.group = posGroup_((info[p.athleteId] || {}).pos); });
+      var kp = selectProps_(k.cands, cfg);
       kp.forEach(function(p) { p.eventId = ev.id; p.sport = cfg.sport; p.espnLeague = cfg.league; p.book = 'Kalshi'; });
       var kout = { props: kp, fetchedAt: new Date().toISOString(),
                    reason: kp.length ? '' : !k.found ? 'No Kalshi player markets for this game yet'
@@ -1532,11 +1586,11 @@ function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
     }
     if (cfg.source === 'oddsapi') {
       var o = getOddsApiProps_(cfg, homeTeam, awayTeam, commenceTime);
-      var op = selectProps_(o.cands);
+      var op = selectProps_(o.cands, cfg);
       var teamOf = op.length ? rosterTeams_(cfg, ev) : {};
       var abbrs = Object.keys(ev.teams).map(function(k) { return ev.teams[k]; });
       op.forEach(function(p) {
-        p.team = teamOf[p.athleteId] || '';
+        p.team = (teamOf[p.athleteId] || {}).team || '';
         p.opp = p.team ? (abbrs.filter(function(a) { return a !== p.team; })[0] || '') : '';
         p.eventId = ev.id; p.sport = cfg.sport; p.espnLeague = cfg.league;
       });
@@ -1547,7 +1601,7 @@ function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
       return oout;
     }
     var rows = fetchPropRows_(cfg, ev.id);
-    var picks = selectProps_(buildPropCandidates_(rows, cfg.markets));
+    var picks = selectProps_(buildPropCandidates_(rows, cfg.markets), cfg);
     var priced = rows.some(function(it) { return it.odds && it.odds.american; });
     // Names + teams for the few props we keep (one small request each, in parallel).
     var resps = picks.length ? UrlFetchApp.fetchAll(picks.map(function(p) {
@@ -1819,7 +1873,9 @@ function buildGameBets_(items, cfg, ev) {
     return Object.assign({ kind: 'game', segment: seg.name, periods: seg.periods, betType: betType, player: seg.name,
       team: '', opp: '', book: 'DraftKings', fairOver: f, updated: (A && A.lastUpdated) || '' }, x);
   };
-  var totals = function(seg, rows, betType, extra) {   // rows: the 2-row O/U pairs for one total
+  // rows: the 2-row O/U pairs for one total. The rows carry no Over/Under label; ESPN lists
+  // the Over first (checked on 107 player-prop pairs with milestones, 2026-11-24).
+  var totals = function(seg, rows, betType, extra) {
     var byLine = {}, list = [];
     rows.forEach(function(it) { var t = target(it); if (!isNaN(t)) (byLine[t] = byLine[t] || []).push(it); });
     Object.keys(byLine).forEach(function(t) {
@@ -1827,7 +1883,8 @@ function buildGameBets_(items, cfg, ev) {
       var f = fair2(price(g[0]), price(g[1])); if (!inBand(f)) return;
       var line = Number(t);
       list.push(make(seg, betType, g[0], g[1], f, Object.assign({ line: line, sideA: 'Over ' + line, sideB: 'Under ' + line,
-        overOdds: null, underOdds: null, prices: [price(g[0]), price(g[1])], fairKnown: false }, extra(line))));
+        overOdds: price(g[0]), underOdds: price(g[1]), impliedOver: impliedProb_(price(g[0])),
+        impliedUnder: impliedProb_(price(g[1])), fairKnown: true }, extra(line))));
     });
     return best(list);
   };
@@ -1884,7 +1941,7 @@ function getGameBets(league, homeTeam, awayTeam, commenceTime) {
   if (!cfg || !pcfg) return { periods: [], team: [], reason: 'Not available for ' + league };
   if (!isPickOpen_(commenceTime)) return { periods: [], team: [], reason: 'Picks are locked for this game' };
   var cache = CacheService.getScriptCache();
-  var key = 'gamebets_v1_' + Utilities.base64EncodeWebSafe(league + '|' + homeTeam + '|' + awayTeam + '|' + commenceTime);
+  var key = 'gamebets_v2_' + Utilities.base64EncodeWebSafe(league + '|' + homeTeam + '|' + awayTeam + '|' + commenceTime);
   var hit = cache.get(key);
   if (hit) return JSON.parse(hit);
   try {

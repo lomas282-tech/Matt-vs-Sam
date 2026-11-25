@@ -157,6 +157,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow
 .game-option .go-soon{font-size:10px;color:var(--accent3);font-weight:700;margin-top:2px;}
 .game-option.selected{background:rgba(245,184,61,0.1);border-left:3px solid var(--accent);}
 .picker-loading{padding:16px;text-align:center;color:var(--muted);font-size:13px;}
+.prop-group-head{padding:6px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;}
+#propFilter .market-pill{padding:5px 10px;font-size:11px;}
 .market-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
 .market-pill{padding:8px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:var(--surface2);transition:all 0.15s;color:var(--muted);}
 .market-pill.selected{border-color:var(--accent);color:var(--accent);background:rgba(245,184,61,0.1);}
@@ -415,7 +417,7 @@ body{background:radial-gradient(900px 520px at -15% -10%,rgba(255,51,68,0.18),tr
         </div>
         <div id="marketGroup" style="display:none">
           <div class="form-group"><label class="form-label">Market</label><div class="market-pills" id="marketPills"></div></div>
-          <div class="form-group" id="propGroup" style="display:none"><label class="form-label" id="propGroupLabel">Player Props <span style="color:var(--muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none">— close to 50/50 only</span></label><div id="propList" class="game-picker"></div></div>
+          <div class="form-group" id="propGroup" style="display:none"><label class="form-label" id="propGroupLabel">Player Props <span style="color:var(--muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none">— close to 50/50 only</span></label><div id="propFilter" class="market-pills"></div><div id="propList" class="game-picker"></div></div>
         </div>
         <div class="form-row" style="margin-bottom:16px">
           <div class="form-group" style="margin:0"><label class="form-label" id="lblTeam1">Fav (Team 1)</label><input type="text" class="form-input" id="addTeam1" placeholder="Favorite"></div>
@@ -896,11 +898,14 @@ function renderGames(games,liveMap){
 
     // Odds display only: strip the internal "O/U " marker so we show just the odds number.
     // Backend value (g.odds) is unchanged; this is presentation only.
+    // The column holds "first side / second side". Older rows only saved the first side's odds,
+    // so the second row shows none rather than repeating the first side's price.
     const oddsDisplay=(g.odds||'').toString().replace(/^(O\/U|PROP|GAME)\s*/i,'').trim();
-    const oddsHtml=oddsDisplay?`<span class="pick-odds">Odds: ${oddsDisplay}</span>`:'';
+    const oddsParts=oddsDisplay.split('/').map(s=>s.trim());
+    const oddsSpan=t=>t?`<span class="pick-odds">Odds: ${esc(t)}</span>`:'';
     const pm=g.propMeta||{};
-    const overOddsHtml=isProp&&pm.overOdds!=null?`<span class="pick-odds">Odds: ${fmtOdds(pm.overOdds)}</span>`:oddsHtml;
-    const underOddsHtml=isProp&&pm.underOdds!=null?`<span class="pick-odds">Odds: ${fmtOdds(pm.underOdds)}</span>`:oddsHtml;
+    const overOddsHtml=isProp&&pm.overOdds!=null?oddsSpan(fmtOdds(pm.overOdds)):oddsSpan(oddsParts[0]);
+    const underOddsHtml=isProp&&pm.underOdds!=null?oddsSpan(fmtOdds(pm.underOdds)):oddsSpan(oddsParts[1]);
     const lineNum=(g.line!==undefined&&g.line!==null&&g.line!=='')?g.line:'';
 
     // Build the primary "choice" markup for each of the two rows.
@@ -1199,7 +1204,7 @@ async function loadProps(gameIdx){
   const pill=document.getElementById('mpill-props');if(pill)pill.classList.add('selected');
   ['addTeam1','addTeam2','addLine','addOdds','addDogOdds'].forEach(id=>document.getElementById(id).value='');
   const list=document.getElementById('propList');
-  document.getElementById('propGroup').style.display='block';
+  document.getElementById('propGroup').style.display='block';document.getElementById('propFilter').innerHTML='';
   setPropGroupLabel('Player Props');
   list.innerHTML='<div class="picker-loading"><span class="spinner"></span> Finding balanced player props...</div>';
   try{
@@ -1207,16 +1212,30 @@ async function loadProps(gameIdx){
     if(_selectedGameIdx!==gameIdx)return; // user moved on
     _props=(r&&r.props)||[];
     if(!_props.length){list.innerHTML='<div class="picker-loading">'+esc((r&&r.reason)||'No player props for this game')+'</div>';return;}
-    list.innerHTML=_props.map((p,i)=>`
-      <div class="game-option" id="prop-${i}" onclick="selectProp(${i})">
+    // Props arrive sorted by group (NFL: QB/RB/WR/TE; NBA: stat type): a header starts each group.
+    const groups=[...new Set(_props.map(p=>p.group).filter(Boolean))];
+    if(groups.length>1) document.getElementById('propFilter').innerHTML=['All',...groups].map((gname,k)=>
+      `<div class="market-pill${k?'':' selected'}" onclick="filterProps(this,${k?`'${esc(gname)}'`:'null'})">${esc(gname)}</div>`).join('');
+    let lastGroup=null;
+    list.innerHTML=_props.map((p,i)=>{
+      const head=p.group&&p.group!==lastGroup?`<div class="prop-group-head" data-group="${esc(p.group)}">${esc(p.group)}</div>`:'';
+      lastGroup=p.group||lastGroup;
+      return `${head}
+      <div class="game-option" id="prop-${i}" data-group="${esc(p.group||'')}" onclick="selectProp(${i})">
         <div class="go-label">${esc(p.player)} <span style="color:var(--muted);font-weight:500">${esc(p.team)}${p.opp?' vs '+esc(p.opp):''}</span></div>
         <div class="go-date">${esc(p.market)} · O/U ${p.line}</div>
         <div class="go-odds">Over ${fmtOdds(p.overOdds)} · Under ${fmtOdds(p.underOdds)}</div>
         <div class="go-odds">${esc(p.book)}${p.updated?' · updated '+esc(utcToCentralDisplay(p.updated)):''}</div>
-      </div>`).join('');
+      </div>`;}).join('');
   }catch(e){
     list.innerHTML='<div class="picker-loading">'+(e&&e.message==='TIMEOUT'?'Timed out — tap Player Props to retry':'Player props unavailable right now')+'</div>';
   }
+}
+// Group chips: show one group's props (null = all). Indexes stay the same, so selectProp still works.
+function filterProps(chip,group){
+  document.querySelectorAll('#propFilter .market-pill').forEach(p=>p.classList.remove('selected'));
+  chip.classList.add('selected');
+  document.querySelectorAll('#propList [data-group]').forEach(el=>{el.style.display=!group||el.dataset.group===group?'':'none';});
 }
 function fmtOdds(n){n=Number(n);return (n>0?'+':'')+n;}
 function setPropGroupLabel(t){document.getElementById('propGroupLabel').innerHTML=esc(t)+' <span style="color:var(--muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none">— close to 50/50 only</span>';}
@@ -1231,7 +1250,7 @@ async function loadGameBets(gameIdx,cat){
   const pill=document.getElementById('mpill-'+cat);if(pill)pill.classList.add('selected');
   ['addTeam1','addTeam2','addLine','addOdds','addDogOdds'].forEach(id=>document.getElementById(id).value='');
   const list=document.getElementById('propList');
-  document.getElementById('propGroup').style.display='block';
+  document.getElementById('propGroup').style.display='block';document.getElementById('propFilter').innerHTML='';
   setPropGroupLabel(cat==='team'?'Team Totals':GAME_BET_CATS[league]);
   list.innerHTML='<div class="picker-loading"><span class="spinner"></span> Finding balanced bets...</div>';
   try{
@@ -1247,7 +1266,7 @@ async function loadGameBets(gameIdx,cat){
       <div class="game-option" id="prop-${i}" onclick="selectGameBet(${i})">
         <div class="go-label">${esc(p.player)} <span style="color:var(--muted);font-weight:500">${esc(p.market)}</span></div>
         <div class="go-date">${esc(p.sideA)} vs ${esc(p.sideB)}</div>
-        <div class="go-odds">${p.fairKnown?`${esc(p.sideA)} ${fmtOdds(p.overOdds)} · ${esc(p.sideB)} ${fmtOdds(p.underOdds)}`:`Odds ${(p.prices||[]).map(fmtOdds).join(' / ')}`}</div>
+        <div class="go-odds">${esc(p.sideA)} ${fmtOdds(p.overOdds)} · ${esc(p.sideB)} ${fmtOdds(p.underOdds)}</div>
         <div class="go-odds">${esc(p.book)}${p.updated?' · updated '+esc(utcToCentralDisplay(p.updated)):''}</div>
       </div>`).join('');
   }catch(e){
@@ -1338,7 +1357,9 @@ async function submitAddGame(){
   const selectedOpt = (g.options||[])[_selectedMktIdx];
   const isTotal = selectedOpt && selectedOpt.type === 'total';
   // For O/U bets, prefix odds with "O/U " so sheet and app can identify the bet type
-  const rawOdds = document.getElementById('addOdds').value;
+  // Both sides' odds go in the odds column as "first side / second side" (e.g. "-110 / +105").
+  const favOddsIn = document.getElementById('addOdds').value.trim(), dogOddsIn = document.getElementById('addDogOdds').value.trim();
+  const rawOdds = favOddsIn + (dogOddsIn ? ' / ' + dogOddsIn : '');
   // Player props: "PROP " marker in the odds column (like "O/U "), prop snapshot saved to cols L/M.
   // Game bets (halves/periods/team totals) get "GAME "; both are graded from ESPN, not the final score.
   const odds = _selectedProp ? (_selectedProp.kind==='game'?'GAME ':'PROP ') + rawOdds : isTotal ? 'O/U ' + rawOdds : rawOdds;

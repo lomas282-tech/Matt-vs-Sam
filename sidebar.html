@@ -280,8 +280,12 @@ function loadPropsSb(idx){
       if(parseInt(document.getElementById('gameSelect').value)!==idx) return; // user picked another game
       _sbProps=(r&&r.props)||[];
       if(!_sbProps.length){box.innerHTML='<div class="info-box">'+esc((r&&(r.reason||r.error))||'No player props for this game')+'</div>';return;}
+      // Props arrive sorted by group (NFL: QB/RB/WR/TE; NBA: stat type): a header starts each group.
+      var lastGroup=null;
       box.innerHTML=_sbProps.map(function(p,i){
-        return '<div class="market-btn" id="sbprop-'+i+'" onclick="selectPropSb('+i+')" style="display:block">'+
+        var head=(p.group&&p.group!==lastGroup)?'<div style="margin:8px 0 4px;font-size:10px;font-weight:bold;text-transform:uppercase;color:#888;letter-spacing:.5px">'+esc(p.group)+'</div>':'';
+        lastGroup=p.group||lastGroup;
+        return head+'<div class="market-btn" id="sbprop-'+i+'" onclick="selectPropSb('+i+')" style="display:block">'+
           '<div class="mkt-name">'+esc(p.player)+' <span style="font-weight:normal;color:#888">'+esc(p.team)+(p.opp?' vs '+esc(p.opp):'')+'</span></div>'+
           '<div class="mkt-odds"><b>'+esc(p.market)+' · O/U '+p.line+'</b></div>'+
           '<div class="mkt-odds">Over '+fmt(p.overOdds)+' · Under '+fmt(p.underOdds)+'</div>'+
@@ -323,9 +327,7 @@ function loadGameBetsSb(idx, cat){
       return '<div class="market-btn" id="sbprop-'+i+'" onclick="selectGameBetSb('+i+')" style="display:block">'+
         '<div class="mkt-name">'+esc(p.player)+' <span style="font-weight:normal;color:#888">'+esc(p.market)+'</span></div>'+
         '<div class="mkt-odds"><b>'+esc(p.sideA)+' vs '+esc(p.sideB)+'</b></div>'+
-        '<div class="mkt-odds">'+(p.fairKnown
-          ? esc(p.sideA)+' '+fmt(p.overOdds)+' · '+esc(p.sideB)+' '+fmt(p.underOdds)
-          : 'Odds '+(p.prices||[]).map(fmt).join(' / '))+'</div>'+
+        '<div class="mkt-odds">'+esc(p.sideA)+' '+fmt(p.overOdds)+' · '+esc(p.sideB)+' '+fmt(p.underOdds)+'</div>'+
         '<div class="mkt-odds" style="color:#888">'+esc(p.book)+'</div></div>';
     }).join('');
   };
@@ -369,7 +371,9 @@ function addGame(){
   var selectedOpt = (g.options||[])[selectedMktIdx];
   var isTotal = selectedOpt && selectedOpt.type === 'total';
   // For O/U bets, prefix odds with "O/U " so sheet and app can identify the bet type
-  var rawOdds = document.getElementById('oddsVal').value;
+  // Both sides' odds go in the odds column as "first side / second side" (e.g. "-110 / +105").
+  var favOddsIn = document.getElementById('oddsVal').value.trim(), dogOddsIn = document.getElementById('dogOddsVal').value.trim();
+  var rawOdds = favOddsIn + (dogOddsIn ? ' / ' + dogOddsIn : '');
   // Player props get the "PROP " marker and their snapshot (saved to columns L/M), same as the app.
   // Game bets (halves/periods/team totals) get "GAME " instead.
   var odds = _sbProp ? (_sbProp.kind==='game'?'GAME ':'PROP ') + rawOdds : isTotal ? 'O/U ' + rawOdds : rawOdds;

@@ -1154,7 +1154,7 @@ var PROP_MARKETS = {
   // NBA: up to 20 per game, up to 3 stats per player, shown in stat groups.
   'NBA': { sport: 'basketball', league: 'nba', max: 20, perPlayer: 3, perMarket: 5,
            core: ['Points', 'Rebounds', 'Assists'],
-           groups: ['Points', 'Rebounds & Assists', '3-Pointers', 'Combos', 'Steals & Blocks'], markets: [
+           propGroups: ['Points', 'Rebounds & Assists', '3-Pointers', 'Combos', 'Steals & Blocks'], markets: [
     { type: 'Total Points', ms: 'Points Milestones', label: 'Points', group: 'Points', stat: [['PTS', 'points']] },
     { type: 'Total Rebounds', ms: 'Rebounds Milestones', label: 'Rebounds', group: 'Rebounds & Assists', stat: [['REB', 'rebounds', 'totalRebounds']] },
     { type: 'Total Assists', ms: 'Assists Milestones', label: 'Assists', group: 'Rebounds & Assists', stat: [['AST', 'assists']] },
@@ -1197,7 +1197,7 @@ var PROP_MARKETS = {
   // picked first so each game leads with QB passing yards and the main rushing/receiving lines.
   'NFL': { sport: 'football', league: 'nfl', source: 'kalshi', max: 20, perPlayer: 3, perMarket: 6,
            core: ['Passing Yds', 'Rushing Yds', 'Receiving Yds'],
-           groups: ['Quarterbacks', 'Running Backs', 'Wide Receivers', 'Tight Ends', 'Other'], markets: [
+           propGroups: ['Quarterbacks', 'Running Backs', 'Wide Receivers', 'Tight Ends', 'Other'], markets: [
     { series: ['KXNFLPASSYDS', 'KXNFLPASSYDSPROT'], label: 'Passing Yds', stat: [['passing.YDS', 'passing.passingYards']] },
     { series: ['KXNFLPASSTDS', 'KXNFLPASSTDSPROT'], label: 'Passing TDs', stat: [['passing.TD', 'passing.passingTouchdowns']] },
     { series: ['KXNFLRSHYDS', 'KXNFLRSHYDSPROT'], label: 'Rushing Yds', stat: [['rushing.YDS', 'rushing.rushingYards']] },
@@ -1515,7 +1515,7 @@ function buildPropCandidates_(items, markets) {
 // Pure: keep only 45-55% fair (every pick is a fair bet), then most popular players
 // first (ties: closest to 50%). One line per player + stat. Limits come from the league
 // config (cfg.max / perPlayer / perMarket), defaulting to PROP_MAX, 1 and PROP_PER_MARKET.
-// With cfg.groups each group gets one slot first; then stats in cfg.core (e.g. QB passing
+// With cfg.propGroups each group gets one slot first; then stats in cfg.core (e.g. QB passing
 // yards); then the rest. The result is ordered by group (e.g. QB, RB, WR, TE).
 function selectProps_(cands, cfg) {
   cfg = cfg || {};
@@ -1537,15 +1537,15 @@ function selectProps_(cands, cfg) {
   var isCore = function(c) { return core.indexOf(c.market) >= 0; };
   // Every group gets a slot first (its most popular core stat if it has one), so e.g. tight
   // ends aren't crowded out by receivers; then the core stats; then everything else.
-  (cfg.groups || []).forEach(function(g) {
+  (cfg.propGroups || []).forEach(function(g) {
     var inG = pool.filter(function(c) { return c.group === g; });
     var first = inG.filter(isCore)[0] || inG[0];
     if (first) take(first);
   });
   pool.forEach(function(c) { if (isCore(c)) take(c); });
   pool.forEach(take);
-  if (cfg.groups) {
-    var rank = function(c) { var i = cfg.groups.indexOf(c.group); return i < 0 ? cfg.groups.length : i; };
+  if (cfg.propGroups) {
+    var rank = function(c) { var i = cfg.propGroups.indexOf(c.group); return i < 0 ? cfg.propGroups.length : i; };
     out = out.map(function(c, i) { return { c: c, i: i }; })
       .sort(function(a, b) { return (rank(a.c) - rank(b.c)) || (a.i - b.i); })
       .map(function(x) { return x.c; });
@@ -1574,8 +1574,8 @@ function getPlayerProps(league, homeTeam, awayTeam, commenceTime) {
     if (cfg.source === 'kalshi') {
       var k = getKalshiProps_(cfg, ev, homeTeam, awayTeam, commenceTime);
       // Positions come first (they decide the groups), then the usual selection.
-      var info = (k.cands.length && cfg.groups) ? rosterTeams_(cfg, ev) : {};
-      k.cands.forEach(function(p) { if (cfg.groups) p.group = posGroup_((info[p.athleteId] || {}).pos); });
+      var info = (k.cands.length && cfg.propGroups) ? rosterTeams_(cfg, ev) : {};
+      k.cands.forEach(function(p) { if (cfg.propGroups) p.group = posGroup_((info[p.athleteId] || {}).pos); });
       var kp = selectProps_(k.cands, cfg);
       kp.forEach(function(p) { p.eventId = ev.id; p.sport = cfg.sport; p.espnLeague = cfg.league; p.book = 'Kalshi'; });
       var kout = { props: kp, fetchedAt: new Date().toISOString(),
